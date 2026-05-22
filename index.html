@@ -9,445 +9,502 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;overflow:hidden}
-:root{--primary:#6366f1;--primary-dark:#4f46e5;--bg-sidebar:#1e293b;--bg-chat:#fff;--bg-panel:#f8fafc;--border:#e2e8f0;--text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;--danger:#ef4444;--success:#22c55e;--warning:#f59e0b}
-.scrollbar::-webkit-scrollbar{width:5px}.scrollbar::-webkit-scrollbar-track{background:transparent}.scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
-.msg-user .bubble{background:var(--primary);color:#fff;border-radius:18px 18px 4px 18px}
-.msg-ai .bubble{background:#fff;color:var(--text-primary);border-radius:18px 18px 18px 4px;border:1px solid var(--border)}
-.msg-agent .bubble{background:#fef3c7;color:#92400e;border-radius:18px 18px 18px 4px;border:1px solid #fde68a}
-.bubble{max-width:70%;padding:10px 14px;font-size:14px;line-height:1.5;word-break:break-word}
-.sidebar-item{transition:all .15s}.sidebar-item:hover{background:rgba(255,255,255,.08)}
-.channel-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;margin-right:4px}
-.channel-wxmini{background:#e0f2fe;color:#0369a1}.channel-wxshop{background:#fef3c7;color:#92400e}.channel-pending{background:#f1f5f9;color:#64748b}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.loading-dot{animation:pulse 1.5s infinite}.loading-dot:nth-child(2){animation-delay:.3s}.loading-dot:nth-child(3){animation-delay:.6s}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;overflow:hidden;color:#1a1a2e}
+:root{--brand:#10a37f;--bg:#fff;--sidebar:#f7f7f8;--border:#e5e5e5;--border-light:#ececf1;--text:#1a1a2e;--text2:#8e8ea0;--text3:#acacbe;--danger:#ef4444;--warning:#f59e0b;--success:#10a37f}
+.sb::-webkit-scrollbar{width:4px}.sb::-webkit-scrollbar-track{background:transparent}.sb::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:10px}.sb::-webkit-scrollbar-thumb:hover{background:#9ca3af}
+.bubble-user{background:#f0f0f0;color:#1a1a2e;border-radius:18px 2px 18px 18px}
+.bubble-ai{background:#10a37f;color:#fff;border-radius:2px 18px 18px 18px}
+.bubble-agent{background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:2px 18px 18px 18px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}.unread-pulse{animation:blink 1.4s infinite}
+textarea{resize:none}
 </style>
 </head>
 <body><div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback, createContext, useContext } = React;
-const API_BASE = 'https://qt1.chengyujewelry.cn/api/kf';
-const AUTH = 'rsny@1234';
+const {useState,useEffect,useRef,useCallback,createContext,useContext,Fragment}=React;
 
-// Auth
-const AuthContext = createContext(null);
-function AuthProvider({children}) {
-  const [token, setToken] = useState(() => localStorage.getItem('kf_token') || '');
-  const login = (p) => { if(p===AUTH){ const t=btoa(AUTH+':'+Date.now()); localStorage.setItem('kf_token',t); setToken(t); return true; } return false; };
-  const logout = () => { localStorage.removeItem('kf_token'); setToken(''); };
-  return React.createElement(AuthContext.Provider, {value:{token,login,logout}}, children);
-}
-function useAuth(){ return useContext(AuthContext); }
+/* ─── Config ─── */
+const API='https://qt1.chengyujewelry.cn/api/kf';
+const AUTH='rsny@1234';
+const hdrs=()=>({'Content-Type':'application/json','x-admin-key':AUTH,'Authorization':'Bearer '+AUTH});
+const api=async(p,o={})=>{const r=await fetch(API+p,{...o,headers:{...hdrs(),...(o.headers||{})}});if(!r.ok)throw new Error('API '+r.status);return r.json();};
 
-// API
-function hdrs(){ return {'Content-Type':'application/json','x-admin-key':AUTH,'Authorization':'Bearer '+AUTH}; }
-async function api(path, opts={}) {
-  const r = await fetch(API_BASE+path, {...opts, headers:{...hdrs(),...(opts.headers||{})}});
-  if(!r.ok) throw new Error('API '+r.status);
-  return r.json();
-}
-
-// Channels
-const CHANNELS = [
-  { id:'wxmini', name:'RSNY 官方精品店', platform:'微信小程序', icon:'📱', status:'online', color:'channel-wxmini' },
-  { id:'wxshop', name:'RSNY 新品推荐官', platform:'微信小店', icon:'🛒', status:'online', color:'channel-wxshop' },
-  { id:'official', name:'RSNY 公众号', platform:'微信公众平台', icon:'📰', status:'pending', color:'channel-pending' },
-  { id:'rsnyplus', name:'RSNY+', platform:'微信小程序', icon:'✨', status:'pending', color:'channel-pending' },
-  { id:'xiaohongshu', name:'RSNY 小红书', platform:'小红书', icon:'📕', status:'pending', color:'channel-pending' },
-  { id:'douyin', name:'RSNY 抖音', platform:'抖音', icon:'🎵', status:'pending', color:'channel-pending' },
-  { id:'weibo', name:'RSNY 微博', platform:'微博', icon:'🔵', status:'pending', color:'channel-pending' },
+/* ─── Channels ─── */
+const CHANNELS=[
+  {id:'wxmini',name:'小程序',platform:'微信小程序',icon:'mini',status:'online'},
+  {id:'wxshop',name:'小店',platform:'微信小店',icon:'shop',status:'online'},
+  {id:'official',name:'公众号',platform:'微信公众平台',icon:'mp',status:'pending'},
 ];
 
-// Formatters
-function fmtTime(d){ if(!d) return ''; const t=new Date(d),n=new Date(),diff=n-t; if(diff<60000) return '刚刚'; if(diff<3600000) return Math.floor(diff/60000)+'分钟前'; if(diff<86400000) return t.getHours()+':'+String(t.getMinutes()).padStart(2,'0'); return (t.getMonth()+1)+'/'+t.getDate(); }
-function fmtFull(d){ if(!d) return ''; const t=new Date(d); return t.getHours()+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0'); }
+/* ─── SVG Icons ─── */
+const Icons={
+  mini:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none'},
+    React.createElement('rect',{x:3,y:3,width:8,height:8,rx:2,fill:'#10a37f',opacity:0.85}),
+    React.createElement('rect',{x:13,y:13,width:8,height:8,rx:2,fill:'#10a37f',opacity:0.55}),
+    React.createElement('rect',{x:13,y:3,width:8,height:8,rx:2,fill:'#10a37f',opacity:0.35})),
+  shop:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'#f59e0b',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
+    React.createElement('path',{d:'M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0'})),
+  mp:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none'},
+    React.createElement('path',{d:'M12 2C6.5 2 2 6 2 10.5c0 3 2 5.5 4 7l1.5 1.5c.5.5 1.3.5 1.7 0l1.3-1.3c.3-.3.8-.3 1.1 0l1.3 1.3c.5.5 1.3.5 1.7 0l1.3-1.3c.3-.3.8-.3 1.1 0l1 1c2-1.5 4-4 4-7C22 6 17.5 2 12 2z',fill:'#8e8ea0',opacity:0.6}),
+    React.createElement('circle',{cx:9,cy:9,r:1.5,fill:'#fff'}),
+    React.createElement('circle',{cx:15,cy:9,r:1.5,fill:'#fff'})),
+  settings:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
+    React.createElement('path',{d:'M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z'}),
+    React.createElement('circle',{cx:12,cy:12,r:3})),
+  attach:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'#8e8ea0',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
+    React.createElement('path',{d:'M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48'})),
+  emoji:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'#8e8ea0',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
+    React.createElement('circle',{cx:12,cy:12,r:10}),
+    React.createElement('path',{d:'M8 14s1.5 2 4 2 4-2 4-2'}),
+    React.createElement('line',{x1:'9',y1:'9',x2:'9.01',y2:'9'}),
+    React.createElement('line',{x1:'15',y1:'9',x2:'15.01',y2:'9'})),
+  quick:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'#8e8ea0',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
+    React.createElement('path',{d:'M13 2L3 14h9l-1 8 10-12h-9l1-8z'})),
+};
 
-// LoginPage
+/* ─── Formatters ─── */
+function fmtTime(d){if(!d)return'';const t=new Date(d),n=new Date(),diff=n-t;if(diff<60000)return'刚刚';if(diff<3600000)return Math.floor(diff/60000)+'分钟前';if(diff<86400000)return t.getHours()+':'+String(t.getMinutes()).padStart(2,'0');return(t.getMonth()+1)+'/'+t.getDate();}
+function fmtFull(d){if(!d)return'';const t=new Date(d);return t.getHours()+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0');}
+
+/* ─── Auth ─── */
+const AuthCtx=createContext(null);
+function AuthProvider({children}){
+  const[t,setT]=useState(()=>localStorage.getItem('kf_token')||'');
+  const login=p=>{if(p===AUTH){const tk=btoa(AUTH+':'+Date.now());localStorage.setItem('kf_token',tk);setT(tk);return true;}return false;};
+  const logout=()=>{localStorage.removeItem('kf_token');setT('');};
+  return React.createElement(AuthCtx.Provider,{value:{token:t,login,logout}},children);
+}
+function useAuth(){return useContext(AuthCtx);}
+
+/* ─── Login ─── */
 function LoginPage(){
-  const {login} = useAuth();
-  const [p,setP]=useState(''); const [e,setE]=useState('');
-  const submit = (ev) => { ev.preventDefault(); if(login(p)) return; setE('密码错误'); setTimeout(()=>setE(''),2000); };
-  return React.createElement('div',{className:'min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600'},
-    React.createElement('div',{className:'bg-white rounded-2xl shadow-2xl p-10 w-96'},
+  const{login}=useAuth();const[p,setP]=useState('');const[e,setE]=useState('');
+  const submit=ev=>{ev.preventDefault();if(login(p))return;setE('密码错误');setTimeout(()=>setE(''),2000);};
+  return React.createElement('div',{className:'min-h-screen flex items-center justify-center',style:{background:'linear-gradient(135deg,#10a37f 0%,#1a7f64 100%)'}},
+    React.createElement('div',{className:'bg-white rounded-2xl shadow-xl p-8 w-96'},
       React.createElement('div',{className:'text-center mb-8'},
-        React.createElement('div',{className:'w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4'},
-          React.createElement('svg',{className:'w-8 h-8 text-white',fill:'none',stroke:'currentColor',viewBox:'0 0 24 24'},
-            React.createElement('path',{strokeLinecap:'round',strokeLinejoin:'round',strokeWidth:'2',d:'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z'})
-          )
+        React.createElement('div',{className:'w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4',style:{background:'#10a37f'}},
+          React.createElement('span',{className:'text-white text-xl font-bold'},'R')
         ),
-        React.createElement('h1',{className:'text-2xl font-bold text-gray-800'},'RSNY 客服工作台'),
-        React.createElement('p',{className:'text-gray-500 text-sm mt-1'},'多渠道聚合 · AI 智能回复 · 人工接管')
+        React.createElement('h1',{className:'text-xl font-bold'},'RSNY 客服工作台'),
+        React.createElement('p',{className:'text-sm mt-1',style:{color:'#8e8ea0'}},'多渠道聚合 · AI智能回复 · 人工接管')
       ),
       React.createElement('form',{onSubmit:submit},
-        React.createElement('input',{type:'password',value:p,onChange:ev=>setP(ev.target.value),placeholder:'请输入管理密码',className:'w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center text-lg',autoFocus:true}),
-        e && React.createElement('p',{className:'text-red-500 text-center mt-2 text-sm'},e),
-        React.createElement('button',{type:'submit',className:'w-full mt-4 bg-indigo-500 text-white py-3 rounded-xl font-medium hover:bg-indigo-600 transition'},'登 录')
+        React.createElement('input',{type:'password',value:p,onChange:ev=>setP(ev.target.value),placeholder:'请输入管理密码',
+          className:'w-full px-4 py-3 border rounded-xl text-center text-lg focus:outline-none focus:ring-2',style:{borderColor:'#e5e5e5'},autoFocus:true}),
+        e&&React.createElement('p',{className:'text-red-500 text-center mt-2 text-sm'},e),
+        React.createElement('button',{type:'submit',className:'w-full mt-4 py-3 text-white rounded-xl font-medium transition',style:{background:'#10a37f'}},'登 录')
       ),
-      React.createElement('p',{className:'text-center text-gray-400 text-xs mt-4'},'v2.1 · 三级导航 · 带记忆的AI智能体')
+      React.createElement('p',{className:'text-center text-xs mt-4',style:{color:'#acacbe'}},'v3.0 · 四栏导航 · 渠道会话对话面板')
     )
   );
 }
 
-// Sidebar — 三级结构：渠道(可展开/折叠) → 会话 → 对话窗口(ChatArea)
-function Sidebar({channels,conversations,activeConv,setActiveConv,unreadCounts,expandedChannels,setExpandedChannels,onSettings}){
-  // 点击渠道标题 → toggle 展开/折叠
-  const toggleChannel = (chId) => {
-    setExpandedChannels(prev =>
-      prev.includes(chId) ? prev.filter(id=>id!==chId) : [...prev, chId]
-    );
-  };
-
-  return React.createElement('div',{className:'flex flex-col h-full',style:{background:'var(--bg-sidebar)'}},
-    // Header
-    React.createElement('div',{className:'p-4 border-b border-white/10'},
-      React.createElement('div',{className:'flex items-center gap-2'},
-        React.createElement('div',{className:'w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-sm'},'R'),
-        React.createElement('div',null,
-          React.createElement('div',{className:'text-white font-medium text-sm'},'RSNY 客服'),
-          React.createElement('div',{className:'text-gray-400 text-xs'},channels.filter(c=>c.status==='online').length+' 渠道在线')
-        )
-      )
-    ),
-    // 渠道 + 会话列表（二级合并）
-    React.createElement('div',{className:'flex-1 overflow-y-auto scrollbar px-2 py-2'},
-      channels.map(ch => {
-        const isExpanded = expandedChannels.includes(ch.id);
-        const channelConvs = conversations.filter(c => c.channel_id === ch.id);
-        const channelUnread = channelConvs.reduce((sum,c) => sum + (unreadCounts[c.id]||0), 0);
-        return React.createElement('div',{key:ch.id, className:'mb-1'},
-          // 渠道标题行（可点击展开/折叠）
-          React.createElement('div',{
-            onClick: () => toggleChannel(ch.id),
-            className:'sidebar-item flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer text-sm'
-          },
-            // 展开/折叠箭头
-            React.createElement('span',{className:'text-xs text-gray-400 transition-transform '+(isExpanded?'rotate-0':'-rotate-90'),style:{display:'inline-block',transition:'transform 0.15s'}},'▼'),
-            // 渠道图标
-            React.createElement('span',{className:'text-lg'},ch.icon),
-            // 渠道名称
-            React.createElement('div',{className:'flex-1 min-w-0'},
-              React.createElement('div',{className:'truncate text-white'},ch.name),
-              React.createElement('div',{className:'text-xs truncate',style:{color:'#94a3b8'}},ch.platform)
-            ),
-            // 会话数 badge
-            channelConvs.length > 0 && React.createElement('span',{className:'text-xs px-1.5 py-0.5 rounded-full '+(channelUnread>0?'bg-indigo-500 text-white':'bg-white/10 text-gray-400')},
-              channelUnread > 0 ? channelUnread : channelConvs.length
-            ),
-            // 在线状态点
-            React.createElement('span',{className:'w-2 h-2 rounded-full '+(ch.status==='online'?'bg-green-400':'bg-gray-500')})
-          ),
-          // 展开的会话列表
-          isExpanded && React.createElement('div',{className:'ml-4 border-l border-white/10 pl-2'},
-            channelConvs.length === 0
-              ? React.createElement('div',{className:'text-center text-gray-500 py-4 text-xs'},'暂无会话')
-              : channelConvs.map(conv => React.createElement('div',{key:conv.id,onClick:()=>setActiveConv(conv),
-                  className:'sidebar-item flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer '+(activeConv?.id===conv.id?'bg-white/10':'')},
-                  React.createElement('div',{className:'w-8 h-8 rounded-full bg-indigo-500/30 flex items-center justify-center text-white text-xs flex-shrink-0'},
-                    (conv.user_nickname||conv.user_id||'?').charAt(0).toUpperCase()
-                  ),
-                  React.createElement('div',{className:'flex-1 min-w-0'},
-                    React.createElement('div',{className:'flex items-center justify-between'},
-                      React.createElement('span',{className:'text-white text-sm truncate'},conv.user_nickname || conv.user_id?.slice(0,8) || '匿名用户'),
-                      React.createElement('span',{className:'text-gray-500 text-xs'},fmtTime(conv.last_message_at))
-                    ),
-                    React.createElement('div',{className:'flex items-center justify-between mt-0.5'},
-                      React.createElement('span',{className:'text-gray-400 text-xs truncate'},conv.last_message_preview || '无消息'),
-                      unreadCounts[conv.id] > 0 && React.createElement('span',{className:'bg-indigo-500 text-white text-xs rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center'},unreadCounts[conv.id])
-                    ),
-                    React.createElement('div',{className:'mt-0.5'},
-                      conv.status==='agent' ? React.createElement('span',{className:'text-yellow-400 text-xs'},'🧑 人工接管中') :
-                      conv.status==='closed' ? React.createElement('span',{className:'text-gray-600 text-xs'},'🔒 已结束') :
-                      React.createElement('span',{className:'text-green-400 text-xs'},'🤖 AI 服务中')
-                    )
-                  )
-                ))
-          )
+/* ─── ChannelBar (~70px) ─── */
+function ChannelBar({channels,activeChannelId,onSelect,unreadCounts,conversations,onSettings}){
+  return React.createElement('div',{className:'flex flex-col h-full select-none',style:{width:'70px',background:'#f7f7f8',borderRight:'1px solid #e5e5e5'}},
+    React.createElement('div',{className:'flex-1 overflow-y-auto sb pt-3'},
+      channels.map(ch=>{
+        const isActive=activeChannelId===ch.id;
+        const chUnread=conversations.filter(c=>c.channel_id===ch.id).reduce((s,c)=>s+(unreadCounts[c.id]||0),0);
+        const chTotal=conversations.filter(c=>c.channel_id===ch.id).length;
+        return React.createElement('div',{key:ch.id,onClick:()=>onSelect(ch.id),
+          className:'relative flex flex-col items-center justify-center cursor-pointer transition-colors',
+          style:{height:'72px',background:isActive?'#fff':'transparent',borderLeft:isActive?'3px solid #10a37f':'3px solid transparent'}},
+          chUnread>0&&React.createElement('span',{className:'absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center text-white font-medium rounded-full unread-pulse',style:{background:'#ef4444',fontSize:'10px',padding:'0 4px'}},chUnread>99?'99+':chUnread),
+          React.createElement('div',{className:'mb-1',style:{opacity:ch.status==='pending'?0.4:1}},Icons[ch.icon]),
+          React.createElement('span',{className:'text-xs truncate w-full text-center',style:{color:isActive?'#1a1a2e':'#8e8ea0',fontSize:'11px',fontWeight:isActive?600:400}},ch.name),
+          React.createElement('span',{className:'text-xs',style:{color:'#acacbe',fontSize:'10px'}},chTotal>0?'('+chTotal+')':'')
         );
       })
     ),
-    // Bottom buttons
-    React.createElement('div',{className:'p-3 border-t border-white/10'},
-      React.createElement('button',{onClick:onSettings,
-        className:'w-full text-gray-300 text-sm py-2 rounded-lg hover:bg-white/5 transition flex items-center justify-center gap-2 mb-1'},
-        React.createElement('svg',{className:'w-4 h-4',fill:'none',stroke:'currentColor',viewBox:'0 0 24 24'},
-          React.createElement('path',{strokeLinecap:'round',strokeLinejoin:'round',strokeWidth:'2',d:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'})
-        ),'系统设置'
-      ),
-      React.createElement('button',{onClick:()=>{localStorage.removeItem('kf_token');window.location.reload();},
-        className:'w-full text-gray-400 text-sm py-2 rounded-lg hover:bg-white/5 transition flex items-center justify-center gap-2'},
-        React.createElement('svg',{className:'w-4 h-4',fill:'none',stroke:'currentColor',viewBox:'0 0 24 24'},
-          React.createElement('path',{strokeLinecap:'round',strokeLinejoin:'round',strokeWidth:'2',d:'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1'})
-        ),'退出登录'
-      )
+    React.createElement('div',{className:'p-2 border-t',style:{borderColor:'#e5e5e5'}},
+      React.createElement('button',{onClick:onSettings,className:'w-full flex items-center justify-center py-2 rounded-lg hover:bg-white transition',title:'系统设置'},Icons.settings)
     )
   );
 }
 
-// ChatArea
-function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,status}){
-  const [input,setInput]=useState(''); const msgEnd=useRef(null);
-  const isHandling=status==='agent'; const isClosed=status==='closed';
-  useEffect(()=>{msgEnd.current?.scrollIntoView({behavior:'smooth'});},[messages]);
-  const send=()=>{ if(!input.trim()||!activeConv||isClosed) return; onSend(input.trim()); setInput(''); };
-  
-  if(!activeConv) return React.createElement('div',{className:'flex-1 flex items-center justify-center bg-white'},
-    React.createElement('div',{className:'text-center text-gray-400'},
-      React.createElement('svg',{className:'w-20 h-20 mx-auto mb-4 text-gray-300',fill:'none',stroke:'currentColor',viewBox:'0 0 24 24'},
-        React.createElement('path',{strokeLinecap:'round',strokeLinejoin:'round',strokeWidth:'1.5',d:'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z'})
-      ),
-      React.createElement('p',{className:'text-lg'},'选择一个会话开始'),
-      React.createElement('p',{className:'text-sm mt-1'},'等待客户从微信发送消息')
+/* ─── ConversationList (~240px) ─── */
+function ConversationList({conversations,activeConv,onSelect,unreadCounts}){
+  return React.createElement('div',{className:'flex flex-col h-full',style:{width:'240px',background:'#fff',borderRight:'1px solid #e5e5e5'}},
+    React.createElement('div',{className:'px-3 py-3 border-b',style:{borderColor:'#ececf1'}},
+      React.createElement('span',{className:'font-semibold text-sm'},'会话'),
+      React.createElement('span',{className:'ml-2 text-xs',style:{color:'#8e8ea0'}},conversations.length+' 个')
+    ),
+    React.createElement('div',{className:'flex-1 overflow-y-auto sb'},
+      conversations.length===0?
+        React.createElement('div',{className:'text-center py-12'},
+          React.createElement('p',{className:'text-3xl mb-2'},'💬'),
+          React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},'暂无会话'),
+          React.createElement('p',{className:'text-xs mt-1',style:{color:'#acacbe'}},'等待客户发送消息')
+        )
+      :conversations.map(conv=>{
+        const isActive=activeConv?.id===conv.id;
+        const unread=unreadCounts[conv.id]||0;
+        return React.createElement('div',{key:conv.id,onClick:()=>onSelect(conv),
+          className:'flex items-start gap-2.5 px-3 py-3 cursor-pointer transition-colors',
+          style:{background:isActive?'#f0f0f0':'transparent',borderLeft:isActive?'3px solid #10a37f':'3px solid transparent'}},
+          React.createElement('div',{className:'w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-medium',style:{background:conv.status==='agent'?'#fef3c7':'#e8f5ef',color:conv.status==='agent'?'#92400e':'#10a37f'}},
+            (conv.user_nickname||conv.user_id||'?').charAt(0).toUpperCase()
+          ),
+          React.createElement('div',{className:'flex-1 min-w-0'},
+            React.createElement('div',{className:'flex items-center justify-between'},
+              React.createElement('span',{className:'text-sm font-medium truncate',style:{color:'#1a1a2e'}},conv.user_nickname||conv.user_id?.slice(0,8)||'匿名'),
+              React.createElement('span',{className:'text-xs flex-shrink-0',style:{color:'#8e8ea0'}},fmtTime(conv.last_message_at))
+            ),
+            React.createElement('div',{className:'flex items-center justify-between mt-0.5'},
+              React.createElement('span',{className:'text-xs truncate',style:{color:'#8e8ea0'}},conv.last_message_preview||'无消息'),
+              unread>0&&React.createElement('span',{className:'unread-pulse min-w-[16px] h-4 flex items-center justify-center text-white text-xs rounded-full flex-shrink-0 ml-1',style:{background:'#ef4444',fontSize:'10px',padding:'0 4px'}},unread)
+            ),
+            React.createElement('div',{className:'mt-0.5'},
+              conv.status==='agent'?React.createElement('span',{className:'text-xs font-medium',style:{color:'#f59e0b'}},'🧑 人工接管中'):
+              conv.status==='closed'?React.createElement('span',{className:'text-xs',style:{color:'#8e8ea0'}},'🔒 已结束'):
+              React.createElement('span',{className:'text-xs',style:{color:'#10a37f'}},'🤖 AI 服务中')
+            )
+          )
+        );
+      })
     )
   );
-  
-  return React.createElement('div',{className:'flex-1 flex flex-col bg-white'},
-    React.createElement('div',{className:'flex items-center justify-between px-5 py-3 border-b',style:{borderColor:'var(--border)'}},
+}
+
+/* ─── ChatArea (flex:1) ─── */
+function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,status,quickReplies}){
+  const[input,setInput]=useState('');
+  const[showQuick,setShowQuick]=useState(false);
+  const endRef=useRef(null);
+  const taRef=useRef(null);
+  const isHandling=status==='agent';
+  const isClosed=status==='closed';
+
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:'smooth'});},[messages]);
+
+  const send=()=>{if(!input.trim()||!activeConv||isClosed)return;onSend(input.trim());setInput('');if(taRef.current)taRef.current.style.height='auto';};
+  const handleKey=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}};
+  const autoResize=()=>{if(taRef.current){taRef.current.style.height='auto';taRef.current.style.height=Math.min(taRef.current.scrollHeight,120)+'px';}};
+
+  if(!activeConv)return React.createElement('div',{className:'flex-1 flex items-center justify-center',style:{background:'#fff'}},
+    React.createElement('div',{className:'text-center'},
+      React.createElement('div',{className:'text-6xl mb-4',style:{color:'#ececf1'}},'💬'),
+      React.createElement('p',{className:'text-lg font-medium',style:{color:'#8e8ea0'}},'选择一个会话开始'),
+      React.createElement('p',{className:'text-sm mt-1',style:{color:'#acacbe'}},'从左侧列表点击会话即可查看对话')
+    )
+  );
+
+  const channelLabel=activeConv.channel_id?.includes('wxshop')?'微信小店':activeConv.channel_id?.includes('wxmini')?'小程序':activeConv.channel_id?.includes('official')?'公众号':activeConv.channel_id||'未知';
+
+  return React.createElement('div',{className:'flex-1 flex flex-col',style:{background:'#fff'}},
+    /* Header */
+    React.createElement('div',{className:'flex items-center justify-between px-5 py-3 border-b',style:{borderColor:'#ececf1'}},
       React.createElement('div',{className:'flex items-center gap-3'},
-        React.createElement('div',{className:'w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium'},
+        React.createElement('div',{className:'w-9 h-9 rounded-full flex items-center justify-center font-medium text-sm',style:{background:'#e8f5ef',color:'#10a37f'}},
           (activeConv.user_nickname||activeConv.user_id||'?').charAt(0).toUpperCase()
         ),
         React.createElement('div',null,
-          React.createElement('div',{className:'font-medium text-sm',style:{color:'var(--text-primary)'}},activeConv.user_nickname || activeConv.user_id?.slice(0,10) || '匿名用户'),
-          React.createElement('div',{className:'text-xs',style:{color:'var(--text-muted)'}},
-            React.createElement('span',{className:(activeConv.channel_id?.includes('wxshop')?'channel-wxshop':'channel-wxmini')+' channel-badge'},
-              activeConv.channel_id?.includes('wxshop')?'微信小店':'小程序'
-            ),
-            isHandling?React.createElement('span',{className:'text-yellow-500 ml-2'},'🧑 人工接管中'):
-            isClosed?React.createElement('span',{className:'text-gray-500 ml-2'},'🔒 已结束'):
-            React.createElement('span',{className:'text-green-500 ml-2'},'🤖 AI 服务中')
+          React.createElement('div',{className:'font-medium text-sm'},activeConv.user_nickname||activeConv.user_id?.slice(0,10)||'匿名'),
+          React.createElement('div',{className:'flex items-center gap-2'},
+            React.createElement('span',{className:'text-xs px-1.5 py-0.5 rounded',style:{background:'#e8f5ef',color:'#10a37f'}},channelLabel),
+            isHandling?React.createElement('span',{className:'text-xs font-medium',style:{color:'#f59e0b'}},'🧑 人工接管中'):
+            isClosed?React.createElement('span',{className:'text-xs',style:{color:'#8e8ea0'}},'🔒 已结束'):
+            React.createElement('span',{className:'text-xs',style:{color:'#10a37f'}},'🤖 AI 服务中')
           )
         )
       ),
       React.createElement('div',{className:'flex gap-2'},
-        !isHandling&&!isClosed&&React.createElement('button',{onClick:onTakeover,className:'px-3 py-1.5 bg-yellow-500 text-white text-xs rounded-lg hover:bg-yellow-600 transition'},'🧑 接管'),
-        isHandling&&React.createElement('button',{onClick:onHandback,className:'px-3 py-1.5 bg-indigo-500 text-white text-xs rounded-lg hover:bg-indigo-600 transition'},'🤖 交还AI'),
-        !isClosed&&React.createElement('button',{onClick:onClose,className:'px-3 py-1.5 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition'},'结束')
+        !isHandling&&!isClosed&&React.createElement('button',{onClick:onTakeover,className:'px-3 py-1.5 text-white text-xs rounded-lg font-medium transition',style:{background:'#f59e0b'}},'🧑 接管'),
+        isHandling&&React.createElement('button',{onClick:onHandback,className:'px-3 py-1.5 text-white text-xs rounded-lg font-medium transition',style:{background:'#10a37f'}},'🤖 交还'),
+        !isClosed&&React.createElement('button',{onClick:onClose,className:'px-3 py-1.5 text-white text-xs rounded-lg font-medium transition',style:{background:'#8e8ea0'}},'结束')
       )
     ),
-    React.createElement('div',{className:'flex-1 overflow-y-auto scrollbar px-5 py-4',style:{backgroundColor:'#f8fafc'}},
-      messages.length===0
-        ? React.createElement('div',{className:'text-center text-gray-400 py-20'},'暂无消息')
-        : messages.map((msg,i) => {
-            const isUser=msg.sender==='user', isAgent=msg.sender==='agent';
-            return React.createElement('div',{key:i,className:'flex mb-4 '+(isUser?'justify-end':'justify-start')+' '+(isUser?'msg-user':isAgent?'msg-agent':'msg-ai')},
-              !isUser && React.createElement('div',{className:'w-8 h-8 rounded-full flex-shrink-0 mr-2 flex items-center justify-center text-xs',style:{backgroundColor:isAgent?'#fef3c7':'#e0e7ff',color:isAgent?'#92400e':'#4f46e5'}},
-                isAgent?'🧑':'🤖'
-              ),
-              React.createElement('div',null,
-                React.createElement('div',{className:'bubble'},msg.content||msg.ai_reply),
-                React.createElement('div',{className:'text-xs mt-1 '+(isUser?'text-right':''),style:{color:'var(--text-muted)'}},
-                  (isAgent?'人工客服':isUser?(activeConv.user_nickname?.slice(0,6)||'用户'):'AI助手')+' · '+fmtFull(msg.created_at)
-                )
-              ),
-              isUser && React.createElement('div',{className:'w-8 h-8 rounded-full bg-indigo-100 flex-shrink-0 ml-2 flex items-center justify-center text-indigo-600 text-xs'},
-                (activeConv.user_nickname||activeConv.user_id||'?').charAt(0).toUpperCase()
-              )
-            );
-          }),
-      React.createElement('div',{ref:msgEnd})
-    ),
-    isClosed
-      ? React.createElement('div',{className:'p-4 text-center text-gray-400 bg-gray-50 border-t'},'会话已结束')
-      : React.createElement('div',{className:'flex items-center gap-3 px-5 py-3 border-t',style:{borderColor:'var(--border)'}},
-          React.createElement('input',{value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>e.key==='Enter'&&send(),
-            placeholder:isHandling?'以人工客服身份回复...':'输入消息',
-            className:'flex-1 px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm',style:{borderColor:'var(--border)'}}),
-          React.createElement('button',{onClick:send,disabled:!input.trim(),
-            className:'px-5 py-2.5 bg-indigo-500 text-white rounded-xl text-sm font-medium hover:bg-indigo-600 transition disabled:opacity-50 disabled:cursor-not-allowed'},'发送')
+    /* Messages */
+    React.createElement('div',{className:'flex-1 overflow-y-auto sb px-5 py-4',style:{background:'#f7f7f8'}},
+      messages.length===0?
+        React.createElement('div',{className:'text-center py-20'},
+          React.createElement('p',{style:{color:'#8e8ea0'}},'暂无消息记录'),
+          React.createElement('p',{className:'text-sm mt-1',style:{color:'#acacbe'}},'客户发送消息后将自动回复')
         )
+      :React.createElement(Fragment,null,
+        messages.map((msg,i)=>{
+          const isUser=msg.sender==='user';const isAgent=msg.sender==='agent';
+          const cls=isUser?'bubble-user':isAgent?'bubble-agent':'bubble-ai';
+          const senderLabel=isAgent?'人工客服':isUser?(activeConv.user_nickname?.slice(0,6)||'用户'):'AI助手';
+          const prevMsg=messages[i-1];
+          const showTime=!prevMsg||new Date(msg.created_at)-new Date(prevMsg.created_at)>300000;
+          return React.createElement(Fragment,{key:i},
+            showTime&&React.createElement('div',{className:'text-center my-3'},
+              React.createElement('span',{className:'text-xs px-3 py-1 rounded-full',style:{background:'#ececf1',color:'#8e8ea0'}},fmtFull(msg.created_at))
+            ),
+            React.createElement('div',{className:'flex mb-3 '+(isUser?'justify-start':'justify-end')},
+              isUser&&React.createElement('div',{className:'w-7 h-7 rounded-full flex-shrink-0 mr-2 flex items-center justify-center text-xs',style:{background:'#e8f5ef',color:'#10a37f'}},(activeConv.user_nickname||'?').charAt(0).toUpperCase()),
+              React.createElement('div',{className:'max-w-[70%]'},
+                !isUser&&React.createElement('div',{className:'text-xs mb-1',style:{color:isAgent?'#92400e':'#10a37f'}},senderLabel),
+                React.createElement('div',{className:cls,style:{padding:'10px 14px',fontSize:'14px',lineHeight:'1.5',wordBreak:'break-word'}},msg.content||msg.ai_reply)
+              ),
+              !isUser&&React.createElement('div',{className:'w-7 h-7 rounded-full flex-shrink-0 ml-2 flex items-center justify-center text-xs',style:{background:isAgent?'#fef3c7':'#e8f5ef',color:isAgent?'#92400e':'#10a37f'}},isAgent?'🧑':'🤖')
+            )
+          );
+        }),
+        React.createElement('div',{ref:endRef})
+      )
+    ),
+    /* Input */
+    isClosed?
+      React.createElement('div',{className:'p-4 text-center text-sm',style:{background:'#f7f7f8',color:'#8e8ea0',borderTop:'1px solid #ececf1'}},'🔒 会话已结束')
+    :
+      React.createElement('div',{className:'border-t relative',style:{borderColor:'#ececf1'}},
+        showQuick&&React.createElement('div',{className:'absolute bottom-full left-0 right-0 mb-2 mx-4 bg-white rounded-xl shadow-lg overflow-hidden z-50',style:{border:'1px solid #e5e5e5',maxHeight:'200px'}},
+          React.createElement('div',{className:'flex items-center justify-between px-3 py-2 border-b',style:{borderColor:'#ececf1'}},
+            React.createElement('span',{className:'text-xs font-medium'},'快捷回复模板'),
+            React.createElement('button',{onClick:()=>setShowQuick(false),className:'text-sm',style:{color:'#8e8ea0'}},'×')
+          ),
+          React.createElement('div',{className:'overflow-y-auto sb'},
+            (quickReplies||[]).map((qr,i)=>React.createElement('div',{key:i,onClick:()=>{onSend(qr.content);setShowQuick(false);},
+              className:'px-3 py-2 cursor-pointer hover:bg-gray-50 border-b transition',style:{borderColor:'#f0f0f0'}},
+              React.createElement('span',{className:'text-sm font-medium'},qr.title),
+              React.createElement('span',{className:'text-xs ml-2',style:{color:'#8e8ea0'}},qr.content.slice(0,40)+'…')
+            ))
+          )
+        ),
+        React.createElement('div',{className:'flex items-center gap-1 px-4 pt-2'},
+          React.createElement('button',{className:'p-1.5 rounded hover:bg-gray-100 transition',title:'上传文件'},Icons.attach),
+          React.createElement('button',{className:'p-1.5 rounded hover:bg-gray-100 transition',title:'表情'},Icons.emoji),
+          React.createElement('button',{onClick:()=>setShowQuick(!showQuick),className:'p-1.5 rounded hover:bg-gray-100 transition',title:'快捷回复',style:{color:showQuick?'#10a37f':'#8e8ea0'}},Icons.quick)
+        ),
+        React.createElement('div',{className:'px-4 pb-3'},
+          React.createElement('textarea',{ref:taRef,value:input,onChange:e=>{setInput(e.target.value);autoResize();},onKeyDown:handleKey,
+            placeholder:isHandling?'以人工客服身份回复... (Enter发送, Shift+Enter换行)':'输入消息... (Enter发送)',
+            className:'w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2',style:{borderColor:'#e5e5e5',minHeight:'40px',maxHeight:'120px',lineHeight:'1.5',focusRingColor:'#10a37f30'},rows:1}),
+          React.createElement('div',{className:'flex justify-end mt-2'},
+            React.createElement('button',{onClick:send,disabled:!input.trim(),
+              className:'px-5 py-1.5 text-white rounded-lg text-sm font-medium transition',style:{background:input.trim()?'#10a37f':'#d1d5db'}},'发送 ↵')
+          )
+        )
+      )
   );
 }
 
-// RightPanel
+/* ─── RightPanel (~280px) ─── */
 function RightPanel({activeConv,quickReplies,onUseQuickReply}){
-  const [tab,setTab]=useState('customer');
-  const [pq,setPq]=useState(''); const [pr,setPr]=useState([]); const [ps,setPs]=useState(false);
-  
-  const searchP = async (q) => {
-    if(!q.trim()){setPr([]);return;}
-    setPs(true);
-    try{ const r=await api('/products/search?q='+encodeURIComponent(q)); setPr(r.products||[]); }catch(e){setPr([]);}
-    setPs(false);
-  };
-  
-  return React.createElement('div',{className:'w-80 flex flex-col h-full',style:{backgroundColor:'var(--bg-panel)',borderLeft:'1px solid var(--border)'}},
-    React.createElement('div',{className:'flex border-b',style:{borderColor:'var(--border)'}},
-      ['customer','products','quick'].map(t => React.createElement('button',{key:t,onClick:()=>setTab(t),
-        className:'flex-1 py-3 text-xs font-medium transition '+(tab===t?'text-indigo-600 border-b-2 border-indigo-500':'text-gray-500 hover:text-gray-700')},
-        t==='customer'?'👤 客户':t==='products'?'💎 商品':'⚡ 快捷'
+  const[tab,setTab]=useState('customer');
+  const[pq,setPq]=useState('');
+  const[pr,setPr]=useState([]);
+  const[ps,setPs]=useState(false);
+
+  const searchP=async(q)=>{if(!q.trim()){setPr([]);return;}setPs(true);try{const r=await api('/products/search?q='+encodeURIComponent(q));setPr(r.products||[]);}catch(e){setPr([]);}setPs(false);};
+
+  const channelId=activeConv?.channel_id||'';
+  const isWxmini=channelId.includes('wxmini');
+  const isWxshop=channelId.includes('wxshop');
+  const isOfficial=channelId.includes('official');
+
+  // Dynamic tab content based on channel
+  const customerFields=isWxmini?[
+    {l:'OpenID',v:activeConv?.user_id?.slice(0,20)||'N/A'},
+    {l:'昵称',v:activeConv?.user_nickname||'未设置'},
+    {l:'渠道',v:'微信小程序'},
+    {l:'最近消息',v:fmtTime(activeConv?.last_message_at)},
+    {l:'状态',v:activeConv?.status==='agent'?'🧑 人工接管':activeConv?.status==='closed'?'🔒 已结束':'🤖 AI 服务'},
+  ]:isWxshop?[
+    {l:'OpenID',v:activeConv?.user_id?.slice(0,20)||'N/A'},
+    {l:'昵称',v:activeConv?.user_nickname||'未设置'},
+    {l:'渠道',v:'微信小店'},
+    {l:'最近消息',v:fmtTime(activeConv?.last_message_at)},
+    {l:'状态',v:activeConv?.status==='agent'?'🧑 人工接管':activeConv?.status==='closed'?'🔒 已结束':'🤖 AI 服务'},
+  ]:isOfficial?[
+    {l:'OpenID',v:activeConv?.user_id?.slice(0,20)||'N/A'},
+    {l:'昵称',v:activeConv?.user_nickname||'未设置'},
+    {l:'渠道',v:'公众号'},
+    {l:'最近消息',v:fmtTime(activeConv?.last_message_at)},
+    {l:'状态',v:activeConv?.status==='agent'?'🧑 人工接管':activeConv?.status==='closed'?'🔒 已结束':'🤖 AI 服务'},
+  ]:[
+    {l:'OpenID',v:activeConv?.user_id?.slice(0,20)||'N/A'},
+    {l:'昵称',v:activeConv?.user_nickname||'未设置'},
+    {l:'最近消息',v:fmtTime(activeConv?.last_message_at)},
+  ];
+
+  const quickTools=isWxmini?[
+    {icon:'👟',label:'浏览足迹',desc:'查看用户最近浏览的商品'},
+    {icon:'❤️',label:'收藏夹',desc:'查看用户收藏的商品'},
+    {icon:'🎫',label:'优惠券',desc:'向用户发放优惠券'},
+    {icon:'🚚',label:'物流查询',desc:'查询用户订单物流信息'},
+  ]:isWxshop?[
+    {icon:'🏷️',label:'促销活动',desc:'查看当前促销信息'},
+    {icon:'🆕',label:'最新商品',desc:'查看最新上架商品'},
+    {icon:'🔄',label:'售后进度',desc:'查看用户售后处理进度'},
+  ]:isOfficial?[
+    {icon:'📄',label:'正在阅读',desc:'用户正在查看的文章'},
+    {icon:'📊',label:'菜单点击',desc:'用户历史菜单点击记录'},
+  ]:[];
+
+  return React.createElement('div',{className:'flex flex-col h-full',style:{width:'280px',background:'#f7f7f8',borderLeft:'1px solid #e5e5e5'}},
+    React.createElement('div',{className:'flex border-b',style:{borderColor:'#ececf1'}},
+      ['customer','products','quick'].map(t=>React.createElement('button',{key:t,onClick:()=>setTab(t),
+        className:'flex-1 py-3 text-xs font-medium transition',
+        style:{color:tab===t?'#10a37f':'#8e8ea0',borderBottom:tab===t?'2px solid #10a37f':'2px solid transparent'}},
+        t==='customer'?'👤 客户':t==='products'?'💎 商品':'⚡ 工具'
       ))
     ),
-    React.createElement('div',{className:'flex-1 overflow-y-auto scrollbar p-4'},
-      tab==='customer' && React.createElement('div',null,
-        React.createElement('h3',{className:'font-medium text-sm mb-3',style:{color:'var(--text-primary)'}},'客户信息'),
-        activeConv ? React.createElement('div',{className:'space-y-3'},
-          [{l:'用户ID',v:activeConv.user_id?.slice(0,16)||'N/A'},{l:'昵称',v:activeConv.user_nickname||'未设置'},{l:'来源',v:activeConv.channel_id?.includes('wxshop')?'微信小店':'小程序'},{l:'最近消息',v:fmtTime(activeConv.last_message_at)},{l:'状态',v:activeConv.status==='agent'?'🧑 人工接管':activeConv.status==='closed'?'🔒 已结束':'🤖 AI 服务'},{l:'未读',v:activeConv.unread_count||0}].map((f,i)=>
-            React.createElement('div',{key:i},
-              React.createElement('label',{className:'text-xs',style:{color:'var(--text-muted)'}},f.l),
-              React.createElement('p',{className:'text-sm mt-0.5',style:{color:'var(--text-primary)'}},f.v)
-            ))
-        ) : React.createElement('p',{className:'text-sm text-gray-400'},'选择会话查看客户信息')
+    React.createElement('div',{className:'flex-1 overflow-y-auto sb p-4'},
+      /* ── 客户 ── */
+      tab==='customer'&&React.createElement('div',null,
+        React.createElement('h3',{className:'font-semibold text-sm mb-3'},'客户信息'),
+        activeConv?React.createElement('div',{className:'space-y-3'},
+          customerFields.map((f,i)=>React.createElement('div',{key:i},
+            React.createElement('label',{className:'text-xs',style:{color:'#8e8ea0'}},f.l),
+            React.createElement('p',{className:'text-sm mt-0.5',style:{color:'#1a1a2e'}},f.v)
+          ))
+        ):React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},'选择会话查看客户信息')
       ),
-      tab==='products' && React.createElement('div',null,
-        React.createElement('h3',{className:'font-medium text-sm mb-3',style:{color:'var(--text-primary)'}},'商品查询'),
+      /* ── 商品 ── */
+      tab==='products'&&React.createElement('div',null,
+        React.createElement('h3',{className:'font-semibold text-sm mb-3'},'商品查询'),
         React.createElement('div',{className:'flex gap-2 mb-3'},
           React.createElement('input',{value:pq,onChange:e=>setPq(e.target.value),onKeyDown:e=>e.key==='Enter'&&searchP(pq),placeholder:'搜索商品名称或货号...',
-            className:'flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500',style:{borderColor:'var(--border)'}}),
-          React.createElement('button',{onClick:()=>searchP(pq),className:'px-3 py-2 bg-indigo-500 text-white rounded-lg text-xs hover:bg-indigo-600 transition'},'搜索')
+            className:'flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'}}),
+          React.createElement('button',{onClick:()=>searchP(pq),className:'px-3 py-2 text-white rounded-lg text-xs font-medium',style:{background:'#10a37f'}},'搜索')
         ),
-        ps && React.createElement('p',{className:'text-gray-400 text-sm'},'搜索中...'),
-        pr.map(p=>React.createElement('div',{key:p.id,className:'flex items-center gap-3 p-3 mb-2 bg-white rounded-lg border',style:{borderColor:'var(--border)'}},
-          React.createElement('div',{className:'w-10 h-10 bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center text-gray-400 text-xs'},'无图'),
+        ps&&React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},'搜索中...'),
+        pr.map(p=>React.createElement('div',{key:p.id,className:'flex items-center gap-3 p-3 mb-2 bg-white rounded-lg border',style:{borderColor:'#e5e5e5'}},
+          React.createElement('div',{className:'w-10 h-10 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center text-gray-400 text-xs'},'无图'),
           React.createElement('div',{className:'flex-1 min-w-0'},
-            React.createElement('p',{className:'text-sm font-medium truncate',style:{color:'var(--text-primary)'}},p.name),
-            React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},p.product_code||'N/A')
+            React.createElement('p',{className:'text-sm font-medium truncate'},p.name),
+            React.createElement('p',{className:'text-xs',style:{color:'#8e8ea0'}},p.product_code||'N/A')
           )
         )),
-        !ps&&pr.length===0&&pq&&React.createElement('p',{className:'text-gray-400 text-sm text-center py-4'},'未找到商品')
+        !ps&&pr.length===0&&pq&&React.createElement('p',{className:'text-sm text-center py-4',style:{color:'#8e8ea0'}},'未找到商品')
       ),
-      tab==='quick' && React.createElement('div',null,
-        React.createElement('h3',{className:'font-medium text-sm mb-3',style:{color:'var(--text-primary)'}},'快捷回复'),
-        quickReplies.length===0
-          ? React.createElement('p',{className:'text-gray-400 text-sm text-center py-4'},'暂无快捷回复')
-          : quickReplies.map((qr,i)=>React.createElement('div',{key:i,onClick:()=>onUseQuickReply(qr),
-              className:'p-3 bg-white rounded-lg border cursor-pointer hover:border-indigo-300 hover:shadow-sm transition mb-2',style:{borderColor:'var(--border)'}},
-              React.createElement('p',{className:'text-sm font-medium',style:{color:'var(--text-primary)'}},qr.title),
-              React.createElement('p',{className:'text-xs mt-1',style:{color:'var(--text-secondary)'}},qr.content.slice(0,60)+'...')
+      /* ── 工具 ── */
+      tab==='quick'&&React.createElement(Fragment,null,
+        React.createElement('h3',{className:'font-semibold text-sm mb-3'},quickTools.length>0?'渠道工具':'快捷工具'),
+        /* 快捷回复 */
+        React.createElement('div',{className:'mb-4'},
+          React.createElement('p',{className:'text-xs mb-2 font-medium',style:{color:'#8e8ea0'}},'快捷回复模板'),
+          (quickReplies||[]).length===0?
+            React.createElement('p',{className:'text-sm',style:{color:'#acacbe'}},'暂无快捷回复'):
+            (quickReplies||[]).map((qr,i)=>React.createElement('div',{key:i,onClick:()=>onUseQuickReply(qr),
+              className:'p-2.5 bg-white rounded-lg border cursor-pointer hover:border-[#10a37f] hover:shadow-sm transition mb-1.5',style:{borderColor:'#e5e5e5'}},
+              React.createElement('p',{className:'text-sm font-medium'},qr.title),
+              React.createElement('p',{className:'text-xs mt-0.5',style:{color:'#8e8ea0'}},qr.content.slice(0,50)+'…')
             ))
+        ),
+        /* 渠道专属工具 */
+        quickTools.length>0&&React.createElement(Fragment,null,
+          React.createElement('p',{className:'text-xs mb-2 font-medium',style:{color:'#8e8ea0'}},isWxmini?'小程序工具':isWxshop?'小店工具':'公众号工具'),
+          quickTools.map((tool,i)=>React.createElement('div',{key:i,className:'flex items-center gap-3 p-3 bg-white rounded-lg border mb-2 cursor-pointer hover:bg-gray-50 transition',style:{borderColor:'#e5e5e5'}},
+            React.createElement('span',{className:'text-lg'},tool.icon),
+            React.createElement('div',null,
+              React.createElement('p',{className:'text-sm font-medium'},tool.label),
+              React.createElement('p',{className:'text-xs',style:{color:'#8e8ea0'}},tool.desc)
+            )
+          ))
+        )
       )
     )
   );
 }
 
-// ====== Settings Modal ======
-const SETTINGS_API = 'https://qt1.chengyujewelry.cn/api/kf/settings';
+/* ─── SettingsModal ─── */
+const SETTINGS_API='https://qt1.chengyujewelry.cn/api/kf/settings';
 
-function SettingsModal({onClose}) {
-  const [tab,setTab]=useState('ai');
-  const [settings,setSettings]=useState(null);
-  const [aiModel,setAiModel]=useState(''); const [aiKey,setAiKey]=useState('');
-  const [newFactContent,setNewFactContent]=useState('');
-  const [newQRTitle,setNewQRTitle]=useState(''); const [newQRContent,setNewQRContent]=useState('');
-  const [msg,setMsg]=useState('');
+function SettingsModal({onClose}){
+  const[tab,setTab]=useState('ai');
+  const[settings,setSettings]=useState(null);
+  const[aiModel,setAiModel]=useState('');const[aiKey,setAiKey]=useState('');
+  const[newFactContent,setNewFactContent]=useState('');
+  const[newQRTitle,setNewQRTitle]=useState('');const[newQRContent,setNewQRContent]=useState('');
+  const[msg,setMsg]=useState('');
 
   useEffect(()=>{
     fetch(SETTINGS_API,{headers:{'x-admin-key':AUTH}}).then(r=>r.json()).then(d=>{
-      setSettings(d); setAiModel(d.ai?.model||''); setAiKey('');
+      setSettings(d);setAiModel(d.ai?.model||'');setAiKey('');
     }).catch(e=>setMsg('加载失败: '+e.message));
   },[]);
 
-  const saveAi = async () => {
-    const r = await fetch(SETTINGS_API+'/ai',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':AUTH},body:JSON.stringify({model:aiModel,apiKey:aiKey})});
-    const d = await r.json();
-    if(d.ok) { setMsg('✅ AI配置已保存'); setAiKey(''); if(settings) { const s={...settings}; s.ai.model=aiModel; s.ai.apiKeyMasked=d.keyMasked; setSettings(s); } }
+  const saveAi=async()=>{
+    const r=await fetch(SETTINGS_API+'/ai',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':AUTH},body:JSON.stringify({model:aiModel,apiKey:aiKey})});
+    const d=await r.json();
+    if(d.ok){setMsg('✅ AI配置已保存');setAiKey('');if(settings){const s={...settings};s.ai.model=aiModel;s.ai.apiKeyMasked=d.keyMasked;setSettings(s);}}
     else setMsg('❌ 保存失败');
   };
-
-  const addFact = async () => {
-    if(!newFactContent.trim()) return;
-    const r = await fetch(SETTINGS_API+'/brand-facts',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':AUTH},body:JSON.stringify({content:newFactContent.trim()})});
-    const d = await r.json();
-    if(d.ok) { setNewFactContent(''); setMsg('✅ 品牌知识已添加'); refreshSettings(); }
-    else setMsg('❌ 添加失败');
+  const addFact=async()=>{
+    if(!newFactContent.trim())return;
+    const r=await fetch(SETTINGS_API+'/brand-facts',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':AUTH},body:JSON.stringify({content:newFactContent.trim()})});
+    const d=await r.json();if(d.ok){setNewFactContent('');setMsg('✅ 已添加');fetch(SETTINGS_API,{headers:{'x-admin-key':AUTH}}).then(r=>r.json()).then(setSettings);}else setMsg('❌ 失败');
+  };
+  const delFact=async(id)=>{
+    if(!confirm('确定删除？'))return;
+    await fetch(SETTINGS_API+'/brand-facts/'+id,{method:'DELETE',headers:{'x-admin-key':AUTH}});setMsg('🗑 已删除');fetch(SETTINGS_API,{headers:{'x-admin-key':AUTH}}).then(r=>r.json()).then(setSettings);
+  };
+  const addQR=async()=>{
+    if(!newQRTitle.trim()||!newQRContent.trim())return;
+    const r=await fetch(SETTINGS_API+'/quick-replies',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':AUTH},body:JSON.stringify({title:newQRTitle.trim(),content:newQRContent.trim()})});
+    const d=await r.json();if(d.ok){setNewQRTitle('');setNewQRContent('');setMsg('✅ 已添加');fetch(SETTINGS_API,{headers:{'x-admin-key':AUTH}}).then(r=>r.json()).then(setSettings);}else setMsg('❌ 失败');
+  };
+  const delQR=async(id)=>{
+    if(!confirm('确定删除？'))return;
+    await fetch(SETTINGS_API+'/quick-replies/'+id,{method:'DELETE',headers:{'x-admin-key':AUTH}});setMsg('🗑 已删除');fetch(SETTINGS_API,{headers:{'x-admin-key':AUTH}}).then(r=>r.json()).then(setSettings);
   };
 
-  const delFact = async (id) => {
-    if(!confirm('确定删除此品牌知识？')) return;
-    await fetch(SETTINGS_API+'/brand-facts/'+id,{method:'DELETE',headers:{'x-admin-key':AUTH}});
-    setMsg('🗑 已删除'); refreshSettings();
-  };
+  if(!settings)return React.createElement('div',{className:'fixed inset-0 bg-black/40 flex items-center justify-center z-50'},React.createElement('div',{className:'bg-white rounded-2xl p-8'},React.createElement('p',null,'加载中...')));
 
-  const addQR = async () => {
-    if(!newQRTitle.trim()||!newQRContent.trim()) return;
-    const r = await fetch(SETTINGS_API+'/quick-replies',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':AUTH},body:JSON.stringify({title:newQRTitle.trim(),content:newQRContent.trim()})});
-    const d = await r.json();
-    if(d.ok) { setNewQRTitle(''); setNewQRContent(''); setMsg('✅ 快捷回复已添加'); refreshSettings(); }
-    else setMsg('❌ 添加失败');
-  };
+  const tabs=['ai','channels','facts','quick'];
+  const tabNames={ai:'AI模型',channels:'渠道提示词',facts:'品牌知识',quick:'快捷回复'};
 
-  const delQR = async (id) => {
-    if(!confirm('确定删除此快捷回复？')) return;
-    await fetch(SETTINGS_API+'/quick-replies/'+id,{method:'DELETE',headers:{'x-admin-key':AUTH}});
-    setMsg('🗑 已删除'); refreshSettings();
-  };
-
-  const refreshSettings = () => {
-    fetch(SETTINGS_API,{headers:{'x-admin-key':AUTH}}).then(r=>r.json()).then(setSettings);
-  };
-
-  if(!settings) return React.createElement('div',{className:'fixed inset-0 bg-black/50 flex items-center justify-center z-50'},
-    React.createElement('div',{className:'bg-white rounded-2xl p-8'},React.createElement('p',null,'加载中...'))
-  );
-
-  const tabs = ['ai','channels','facts','quick'];
-  const tabNames = {ai:'AI模型',channels:'渠道提示词',facts:'品牌知识',quick:'快捷回复'};
-
-  return React.createElement('div',{className:'fixed inset-0 bg-black/40 flex items-center justify-center z-50',onClick:(e)=>{if(e.target===e.currentTarget)onClose()}},
+  return React.createElement('div',{className:'fixed inset-0 bg-black/40 flex items-center justify-center z-50',onClick:e=>{if(e.target===e.currentTarget)onClose();}},
     React.createElement('div',{className:'bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden'},
-      // Header
-      React.createElement('div',{className:'flex items-center justify-between px-6 py-4 border-b',style:{borderColor:'var(--border)'}},
-        React.createElement('div',{className:'flex items-center gap-2'},
-          React.createElement('svg',{className:'w-5 h-5 text-indigo-500',fill:'none',stroke:'currentColor',viewBox:'0 0 24 24'},
-            React.createElement('path',{strokeLinecap:'round',strokeLinejoin:'round',strokeWidth:'2',d:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'})
-          ),
-          React.createElement('h2',{className:'text-lg font-bold',style:{color:'var(--text-primary)'}},'系统配置管理')
-        ),
+      React.createElement('div',{className:'flex items-center justify-between px-6 py-4 border-b',style:{borderColor:'#ececf1'}},
+        React.createElement('h2',{className:'text-lg font-bold'},'⚙ 系统配置管理'),
         React.createElement('button',{onClick:onClose,className:'text-gray-400 hover:text-gray-600 text-2xl leading-none'},'×')
       ),
-      // Tabs
-      React.createElement('div',{className:'flex border-b',style:{borderColor:'var(--border)'}},
-        tabs.map(t=>React.createElement('button',{key:t,onClick:()=>setTab(t),
-          className:'px-5 py-3 text-sm font-medium transition border-b-2 '+(tab===t?'border-indigo-500 text-indigo-600':'border-transparent text-gray-500 hover:text-gray-700')},
-          tabNames[t]
-        ))
+      React.createElement('div',{className:'flex border-b',style:{borderColor:'#ececf1'}},
+        tabs.map(t=>React.createElement('button',{key:t,onClick:()=>setTab(t),className:'px-5 py-3 text-sm font-medium transition',style:{color:tab===t?'#10a37f':'#8e8ea0',borderBottom:tab===t?'2px solid #10a37f':'2px solid transparent'}},tabNames[t]))
       ),
-      // Content
-      React.createElement('div',{className:'flex-1 overflow-y-auto p-6 scrollbar'},
-        msg && React.createElement('div',{className:'mb-4 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm'},msg),
-        tab==='ai' && React.createElement('div',{className:'space-y-4'},
+      React.createElement('div',{className:'flex-1 overflow-y-auto sb p-6'},
+        msg&&React.createElement('div',{className:'mb-4 px-4 py-2 rounded-lg text-sm',style:{background:'#e8f5ef',color:'#10a37f'}},msg),
+        tab==='ai'&&React.createElement('div',{className:'space-y-4'},
           React.createElement('div',null,
-            React.createElement('label',{className:'block text-sm font-medium mb-1',style:{color:'var(--text-secondary)'}},'AI 模型'),
-            React.createElement('input',{value:aiModel,onChange:e=>setAiModel(e.target.value),className:'w-full px-3 py-2 border rounded-lg text-sm',style:{borderColor:'var(--border)'},placeholder:'deepseek-v4-flash'})
+            React.createElement('label',{className:'block text-sm font-medium mb-1',style:{color:'#8e8ea0'}},'AI 模型'),
+            React.createElement('input',{value:aiModel,onChange:e=>setAiModel(e.target.value),className:'w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'},placeholder:'deepseek-v4-flash'})
           ),
           React.createElement('div',null,
-            React.createElement('label',{className:'block text-sm font-medium mb-1',style:{color:'var(--text-secondary)'}},'API Key'),
+            React.createElement('label',{className:'block text-sm font-medium mb-1',style:{color:'#8e8ea0'}},'API Key'),
             React.createElement('div',{className:'flex items-center gap-2'},
-              React.createElement('span',{className:'text-xs text-gray-400 bg-gray-100 px-3 py-2 rounded'},'当前: ',settings.ai?.apiKeyMasked||'未配置'),
-              React.createElement('input',{value:aiKey,onChange:e=>setAiKey(e.target.value),className:'flex-1 px-3 py-2 border rounded-lg text-sm',style:{borderColor:'var(--border)'},placeholder:'输入新Key（不修改则留空）',type:'password'})
+              React.createElement('span',{className:'text-xs px-3 py-2 rounded',style:{background:'#f7f7f8',color:'#8e8ea0'}},'当前: ',settings.ai?.apiKeyMasked||'未配置'),
+              React.createElement('input',{value:aiKey,onChange:e=>setAiKey(e.target.value),className:'flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'},placeholder:'输入新Key（不修改则留空）',type:'password'})
             )
           ),
-          React.createElement('button',{onClick:saveAi,className:'px-6 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition'},'保存 AI 配置')
+          React.createElement('button',{onClick:saveAi,className:'px-6 py-2 text-white rounded-lg text-sm font-medium transition',style:{background:'#10a37f'}},'保存 AI 配置')
         ),
-        tab==='channels' && React.createElement('div',{className:'space-y-4'},
-          React.createElement('p',{className:'text-sm text-gray-500'},'AI 智能体根据渠道使用不同的系统提示词（System Prompt），以下为当前配置：'),
-          Object.entries(settings.systemPrompts||{}).map(([key,val])=>React.createElement('div',{key,className:'bg-gray-50 rounded-xl p-4 border',style:{borderColor:'var(--border)'}},
-            React.createElement('h3',{className:'font-medium text-sm mb-2',style:{color:'var(--text-primary)'}},val.channel),
-            React.createElement('p',{className:'text-xs text-gray-600 mb-3 bg-white p-3 rounded'},val.base),
-            React.createElement('p',{className:'text-xs font-medium mb-1',style:{color:'var(--text-secondary)'}},'回复准则：'),
-            React.createElement('div',{className:'flex flex-wrap gap-1'},val.guidelines.map((g,i)=>React.createElement('span',{key:i,className:'px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full'},g)))
-          )),
-          React.createElement('p',{className:'text-xs text-gray-400 mt-2'},'💡 提示：渠道提示词当前为默认配置，如需自定义请联系开发人员编辑服务器代码中的 buildSystemPrompt 函数。')
+        tab==='channels'&&React.createElement('div',{className:'space-y-4'},
+          React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},'AI 智能体根据渠道使用不同的系统提示词：'),
+          Object.entries(settings.systemPrompts||{}).map(([key,val])=>React.createElement('div',{key,className:'bg-white rounded-xl p-4 border',style:{borderColor:'#e5e5e5'}},
+            React.createElement('h3',{className:'font-medium text-sm mb-2'},val.channel),
+            React.createElement('p',{className:'text-xs mb-3 bg-gray-50 p-3 rounded'},val.base),
+            React.createElement('div',{className:'flex flex-wrap gap-1'},val.guidelines.map((g,i)=>React.createElement('span',{key:i,className:'px-2 py-0.5 text-xs rounded-full',style:{background:'#e8f5ef',color:'#10a37f'}},g)))
+          ))
         ),
-        tab==='facts' && React.createElement('div',{className:'space-y-3'},
+        tab==='facts'&&React.createElement('div',{className:'space-y-3'},
           React.createElement('div',{className:'flex gap-2'},
-            React.createElement('input',{value:newFactContent,onChange:e=>setNewFactContent(e.target.value),className:'flex-1 px-3 py-2 border rounded-lg text-sm',style:{borderColor:'var(--border)'},placeholder:'输入新的品牌知识...'}),
-            React.createElement('button',{onClick:addFact,className:'px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm hover:bg-indigo-600 transition'},'添加')
+            React.createElement('input',{value:newFactContent,onChange:e=>setNewFactContent(e.target.value),className:'flex-1 px-3 py-2 border rounded-lg text-sm',style:{borderColor:'#e5e5e5'},placeholder:'输入新的品牌知识...'}),
+            React.createElement('button',{onClick:addFact,className:'px-4 py-2 text-white rounded-lg text-sm',style:{background:'#10a37f'}},'添加')
           ),
-          (settings.brandFacts||[]).map(f=>React.createElement('div',{key:f.id,className:'flex items-center justify-between bg-gray-50 rounded-lg p-3 border',style:{borderColor:'var(--border)'}},
-            React.createElement('span',{className:'text-sm flex-1',style:{color:'var(--text-primary)'}},f.content),
+          (settings.brandFacts||[]).map(f=>React.createElement('div',{key:f.id,className:'flex items-center justify-between bg-white rounded-lg p-3 border',style:{borderColor:'#e5e5e5'}},
+            React.createElement('span',{className:'text-sm flex-1'},f.content),
             React.createElement('button',{onClick:()=>delFact(f.id),className:'ml-3 text-red-400 hover:text-red-600 text-lg leading-none'},'×')
           ))
         ),
-        tab==='quick' && React.createElement('div',{className:'space-y-3'},
+        tab==='quick'&&React.createElement('div',{className:'space-y-3'},
           React.createElement('div',{className:'flex gap-2 flex-wrap'},
-            React.createElement('input',{value:newQRTitle,onChange:e=>setNewQRTitle(e.target.value),className:'px-3 py-2 border rounded-lg text-sm w-32',style:{borderColor:'var(--border)'},placeholder:'标题'}),
-            React.createElement('input',{value:newQRContent,onChange:e=>setNewQRContent(e.target.value),className:'flex-1 px-3 py-2 border rounded-lg text-sm',style:{borderColor:'var(--border)'},placeholder:'回复内容'}),
-            React.createElement('button',{onClick:addQR,className:'px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm hover:bg-indigo-600 transition'},'添加')
+            React.createElement('input',{value:newQRTitle,onChange:e=>setNewQRTitle(e.target.value),className:'px-3 py-2 border rounded-lg text-sm w-32',style:{borderColor:'#e5e5e5'},placeholder:'标题'}),
+            React.createElement('input',{value:newQRContent,onChange:e=>setNewQRContent(e.target.value),className:'flex-1 px-3 py-2 border rounded-lg text-sm',style:{borderColor:'#e5e5e5'},placeholder:'回复内容'}),
+            React.createElement('button',{onClick:addQR,className:'px-4 py-2 text-white rounded-lg text-sm',style:{background:'#10a37f'}},'添加')
           ),
-          (settings.quickReplies||[]).map(qr=>React.createElement('div',{key:qr.id,className:'flex items-center justify-between bg-gray-50 rounded-lg p-3 border',style:{borderColor:'var(--border)'}},
+          (settings.quickReplies||[]).map(qr=>React.createElement('div',{key:qr.id,className:'flex items-center justify-between bg-white rounded-lg p-3 border',style:{borderColor:'#e5e5e5'}},
             React.createElement('div',{className:'flex-1 min-w-0'},
-              React.createElement('p',{className:'text-sm font-medium',style:{color:'var(--text-primary)'}},qr.title),
-              React.createElement('p',{className:'text-xs text-gray-500 truncate'},qr.content)
+              React.createElement('p',{className:'text-sm font-medium'},qr.title),
+              React.createElement('p',{className:'text-xs truncate',style:{color:'#8e8ea0'}},qr.content)
             ),
             React.createElement('button',{onClick:()=>delQR(qr.id),className:'ml-3 text-red-400 hover:text-red-600 text-lg leading-none'},'×')
           ))
@@ -457,117 +514,115 @@ function SettingsModal({onClose}) {
   );
 }
 
-// Workbench
+/* ─── Workbench ─── */
 function Workbench(){
-  const [channels]=useState(CHANNELS);
-  const [conversations,setConversations]=useState([]);
-  const [activeConv,setActiveConv]=useState(null);
-  const [messages,setMessages]=useState([]);
-  const [quickReplies,setQuickReplies]=useState([]);
-  const [unreadCounts,setUnreadCounts]=useState({});
-  const [loading,setLoading]=useState(true);
-  const [showSettings,setShowSettings]=useState(false);
-  const [expandedChannels,setExpandedChannels]=useState(['wxshop','wxmini']); // 默认展开在线渠道
+  const[conversations,setConversations]=useState([]);
+  const[activeConv,setActiveConv]=useState(null);
+  const[messages,setMessages]=useState([]);
+  const[quickReplies,setQuickReplies]=useState([]);
+  const[unreadCounts,setUnreadCounts]=useState({});
+  const[activeChannelId,setActiveChannelId]=useState('wxmini');
+  const[loading,setLoading]=useState(true);
+  const[showSettings,setShowSettings]=useState(false);
 
-  const fetchSessions = useCallback(async () => {
-    try {
-      const data = await api('/sessions');
-      if(data.sessions) {
-        setConversations(prev => {
-          data.sessions.forEach(s => {
-            const p = prev.find(x=>x.id===s.id);
-            if(p && s.unread_count > (p.unread_count||0)) {
-              setUnreadCounts(x=>({...x, [s.id]: (x[s.id]||0)+(s.unread_count-(p.unread_count||0))}));
+  // Filter conversations by active channel
+  const filteredConversations=conversations.filter(c=>c.channel_id===activeChannelId);
+
+  const fetchSessions=useCallback(async()=>{
+    try{
+      const data=await api('/sessions');
+      if(data.sessions){
+        setConversations(prev=>{
+          data.sessions.forEach(s=>{
+            const p=prev.find(x=>x.id===s.id);
+            if(p&&s.unread_count>(p.unread_count||0)){
+              setUnreadCounts(x=>({...x,[s.id]:(x[s.id]||0)+(s.unread_count-(p.unread_count||0))}));
             }
           });
           return data.sessions;
         });
       }
-    } catch(e){ console.error('fetchSessions:',e); }
+    }catch(e){console.error('fetchSessions:',e);}
     setLoading(false);
-  }, []);
-  
-  const fetchMessages = useCallback(async (cid) => {
-    if(!cid) return;
-    try {
-      const data = await api('/sessions/'+cid+'/messages');
-      if(data.messages) setMessages(data.messages);
-    } catch(e){}
-  }, []);
-  
-  const fetchQR = useCallback(async () => {
-    try { const d=await api('/quick-replies'); if(d.replies) setQuickReplies(d.replies); } catch(e){}
-  }, []);
-  
-  useEffect(() => { fetchSessions(); fetchQR(); }, []);
-  
-  useEffect(() => {
-    const t = setInterval(() => { fetchSessions(); if(activeConv) fetchMessages(activeConv.id); }, 3000);
-    return () => clearInterval(t);
-  }, [activeConv, fetchSessions, fetchMessages]);
-  
-  useEffect(() => {
-    if(activeConv) { fetchMessages(activeConv.id); setUnreadCounts(prev=>{const n={...prev};delete n[activeConv.id];return n;}); }
-  }, [activeConv?.id]);
-  
-  const handleSend = async (text) => {
-    if(!activeConv) return;
-    try {
+  },[]);
+
+  const fetchMessages=useCallback(async(cid)=>{
+    if(!cid)return;
+    try{
+      const data=await api('/sessions/'+cid+'/messages');
+      if(data.messages)setMessages(data.messages);
+    }catch(e){}
+  },[]);
+
+  const fetchQR=useCallback(async()=>{
+    try{const d=await api('/quick-replies');if(d.replies)setQuickReplies(d.replies);}catch(e){}
+  },[]);
+
+  useEffect(()=>{fetchSessions();fetchQR();},[]);
+
+  useEffect(()=>{
+    const t=setInterval(()=>{fetchSessions();if(activeConv)fetchMessages(activeConv.id);},3000);
+    return()=>clearInterval(t);
+  },[activeConv,fetchSessions,fetchMessages]);
+
+  useEffect(()=>{
+    if(activeConv){fetchMessages(activeConv.id);setUnreadCounts(prev=>{const n={...prev};delete n[activeConv.id];return n;});}
+  },[activeConv?.id,fetchMessages]);
+
+  const handleSend=async(text)=>{
+    if(!activeConv)return;
+    try{
       await api('/sessions/'+activeConv.id+'/send',{method:'POST',body:JSON.stringify({content:text,sender:'agent'})});
-      fetchMessages(activeConv.id); fetchSessions();
-    } catch(e){ alert('发送失败: '+e.message); }
+      fetchMessages(activeConv.id);fetchSessions();
+    }catch(e){alert('发送失败: '+e.message);}
   };
-  
-  const handleTakeover = async () => {
-    if(!activeConv) return;
-    try { await api('/sessions/'+activeConv.id+'/takeover',{method:'POST'}); fetchSessions(); fetchMessages(activeConv.id); }
-    catch(e){ alert('接管失败: '+e.message); }
+  const handleTakeover=async()=>{
+    if(!activeConv)return;
+    try{await api('/sessions/'+activeConv.id+'/takeover',{method:'POST'});fetchSessions();fetchMessages(activeConv.id);}catch(e){alert('接管失败: '+e.message);}
   };
-  
-  const handleHandback = async () => {
-    if(!activeConv) return;
-    try { await api('/sessions/'+activeConv.id+'/handback',{method:'POST'}); fetchSessions(); fetchMessages(activeConv.id); }
-    catch(e){ alert('交还失败: '+e.message); }
+  const handleHandback=async()=>{
+    if(!activeConv)return;
+    try{await api('/sessions/'+activeConv.id+'/handback',{method:'POST'});fetchSessions();fetchMessages(activeConv.id);}catch(e){alert('交还失败: '+e.message);}
   };
-  
-  const handleClose = async () => {
-    if(!activeConv) return;
-    if(!confirm('确定结束此会话？')) return;
-    try { await api('/sessions/'+activeConv.id+'/close',{method:'POST'}); fetchSessions(); setActiveConv(null); setMessages([]); }
-    catch(e){ alert('结束失败: '+e.message); }
+  const handleClose=async()=>{
+    if(!activeConv)return;
+    if(!confirm('确定结束此会话？'))return;
+    try{await api('/sessions/'+activeConv.id+'/close',{method:'POST'});fetchSessions();setActiveConv(null);setMessages([]);}catch(e){alert('结束失败: '+e.message);}
   };
-  
-  const handleUseQR = (qr) => {
-    navigator.clipboard.writeText(qr.content).then(() => alert('已复制: '+qr.title));
-  };
-  
-  if(loading) return React.createElement('div',{className:'h-screen flex items-center justify-center bg-gray-100'},
+  const handleUseQR=(qr)=>{navigator.clipboard.writeText(qr.content).then(()=>alert('已复制: '+qr.title));};
+
+  // When switching channels, deselect conv if it doesn't belong to new channel
+  useEffect(()=>{
+    if(activeConv&&activeConv.channel_id!==activeChannelId){
+      setActiveConv(null);setMessages([]);
+    }
+  },[activeChannelId]);
+
+  if(loading)return React.createElement('div',{className:'h-screen flex items-center justify-center',style:{background:'#f7f7f8'}},
     React.createElement('div',{className:'text-center'},
       React.createElement('div',{className:'text-4xl mb-4'},'⏳'),
-      React.createElement('p',{className:'text-gray-500'},'加载中...')
+      React.createElement('p',{style:{color:'#8e8ea0'}},'加载中...')
     )
   );
-  
+
   return React.createElement('div',{className:'h-screen flex'},
-    React.createElement('div',{className:'w-72 flex-shrink-0'},
-      React.createElement(Sidebar,{channels,conversations,activeConv,setActiveConv,unreadCounts,expandedChannels,setExpandedChannels,onSettings:()=>setShowSettings(true)})
-    ),
-    React.createElement(ChatArea,{activeConv,messages,onSend:handleSend,onTakeover:handleTakeover,onHandback:handleHandback,onClose:handleClose,status:activeConv?.status||'ai'}),
+    React.createElement(ChannelBar,{channels:CHANNELS,activeChannelId,onSelect:setActiveChannelId,unreadCounts,conversations,onSettings:()=>setShowSettings(true)}),
+    React.createElement(ConversationList,{conversations:filteredConversations,activeConv,onSelect:setActiveConv,unreadCounts}),
+    React.createElement(ChatArea,{activeConv,messages,onSend:handleSend,onTakeover:handleTakeover,onHandback:handleHandback,onClose:handleClose,status:activeConv?.status||'ai',quickReplies}),
     React.createElement(RightPanel,{activeConv,quickReplies,onUseQuickReply:handleUseQR}),
-    showSettings && React.createElement(SettingsModal,{onClose:()=>setShowSettings(false)})
+    showSettings&&React.createElement(SettingsModal,{onClose:()=>setShowSettings(false)})
   );
 }
 
-// App
+/* ─── App ─── */
 function App(){
-  const {token} = useAuth();
-  if(!token) return React.createElement(LoginPage);
+  const{token}=useAuth();
+  if(!token)return React.createElement(LoginPage);
   return React.createElement(Workbench);
 }
 
-// Render
 ReactDOM.createRoot(document.getElementById('root')).render(
-  React.createElement(AuthProvider, null, React.createElement(App))
+  React.createElement(AuthProvider,null,React.createElement(App))
 );
 </script>
 </body>
