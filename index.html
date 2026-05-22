@@ -33,21 +33,21 @@ const api=async(p,o={})=>{const r=await fetch(API+p,{...o,headers:{...hdrs(),...
 
 /* ─── Channels ─── */
 const CHANNELS=[
-  {id:'wxmini',name:'小程序',platform:'微信小程序',icon:'mini',status:'online'},
-  {id:'wxshop',name:'小店',platform:'微信小店',icon:'shop',status:'online'},
-  {id:'official',name:'公众号',platform:'微信公众平台',icon:'mp',status:'pending'},
+  {id:'wxmini',name:'RSNY官方精品店',platform:'小程序',icon:'mini',status:'online'},
+  {id:'wxshop',name:'RSNY新品推荐官',platform:'微信小店',icon:'shop',status:'online'},
+  {id:'official',name:'RSNY公众号',platform:'公众号',icon:'mp',status:'pending'},
 ];
 
 /* ─── SVG Icons ─── */
 const Icons={
   mini:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none'},
-    React.createElement('rect',{x:3,y:3,width:8,height:8,rx:2,fill:'#666',opacity:0.85}),
-    React.createElement('rect',{x:13,y:13,width:8,height:8,rx:2,fill:'#666',opacity:0.55}),
-    React.createElement('rect',{x:13,y:3,width:8,height:8,rx:2,fill:'#666',opacity:0.35})),
-  shop:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'#999',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
+    React.createElement('rect',{x:3,y:3,width:8,height:8,rx:2,fill:'#07C160',opacity:0.85}),
+    React.createElement('rect',{x:13,y:13,width:8,height:8,rx:2,fill:'#07C160',opacity:0.55}),
+    React.createElement('rect',{x:13,y:3,width:8,height:8,rx:2,fill:'#07C160',opacity:0.35})),
+  shop:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'#07C160',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
     React.createElement('path',{d:'M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0'})),
   mp:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none'},
-    React.createElement('path',{d:'M12 2C6.5 2 2 6 2 10.5c0 3 2 5.5 4 7l1.5 1.5c.5.5 1.3.5 1.7 0l1.3-1.3c.3-.3.8-.3 1.1 0l1.3 1.3c.5.5 1.3.5 1.7 0l1.3-1.3c.3-.3.8-.3 1.1 0l1 1c2-1.5 4-4 4-7C22 6 17.5 2 12 2z',fill:'#8e8ea0',opacity:0.6}),
+    React.createElement('path',{d:'M12 2C6.5 2 2 6 2 10.5c0 3 2 5.5 4 7l1.5 1.5c.5.5 1.3.5 1.7 0l1.3-1.3c.3-.3.8-.3 1.1 0l1.3 1.3c.5.5 1.3.5 1.7 0l1.3-1.3c.3-.3.8-.3 1.1 0l1 1c2-1.5 4-4 4-7C22 6 17.5 2 12 2z',fill:'#07C160',opacity:0.6}),
     React.createElement('circle',{cx:9,cy:9,r:1.5,fill:'#fff'}),
     React.createElement('circle',{cx:15,cy:9,r:1.5,fill:'#fff'})),
   settings:React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},
