@@ -83,14 +83,22 @@ function LoginPage(){
         e && React.createElement('p',{className:'text-red-500 text-center mt-2 text-sm'},e),
         React.createElement('button',{type:'submit',className:'w-full mt-4 bg-indigo-500 text-white py-3 rounded-xl font-medium hover:bg-indigo-600 transition'},'登 录')
       ),
-      React.createElement('p',{className:'text-center text-gray-400 text-xs mt-4'},'v2.0 · 带记忆的AI智能体')
+      React.createElement('p',{className:'text-center text-gray-400 text-xs mt-4'},'v2.1 · 三级导航 · 带记忆的AI智能体')
     )
   );
 }
 
-// Sidebar
-function Sidebar({channels,activeChannel,setActiveChannel,conversations,activeConv,setActiveConv,unreadCounts,onSettings}){
+// Sidebar — 三级结构：渠道(可展开/折叠) → 会话 → 对话窗口(ChatArea)
+function Sidebar({channels,conversations,activeConv,setActiveConv,unreadCounts,expandedChannels,setExpandedChannels,onSettings}){
+  // 点击渠道标题 → toggle 展开/折叠
+  const toggleChannel = (chId) => {
+    setExpandedChannels(prev =>
+      prev.includes(chId) ? prev.filter(id=>id!==chId) : [...prev, chId]
+    );
+  };
+
   return React.createElement('div',{className:'flex flex-col h-full',style:{background:'var(--bg-sidebar)'}},
+    // Header
     React.createElement('div',{className:'p-4 border-b border-white/10'},
       React.createElement('div',{className:'flex items-center gap-2'},
         React.createElement('div',{className:'w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-sm'},'R'),
@@ -100,49 +108,64 @@ function Sidebar({channels,activeChannel,setActiveChannel,conversations,activeCo
         )
       )
     ),
-    React.createElement('div',{className:'p-2'},
-      React.createElement('div',{className:'text-gray-500 text-xs px-3 py-2 uppercase tracking-wider font-medium'},'渠道'),
-      channels.map(ch => React.createElement('div',{key:ch.id,onClick:()=>setActiveChannel(ch),
-        className:'sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm '+(activeChannel?.id===ch.id?'bg-white/10 text-white':'text-gray-300')},
-        React.createElement('span',{className:'text-lg'},ch.icon),
-        React.createElement('div',{className:'flex-1 min-w-0'},
-          React.createElement('div',{className:'truncate'},ch.name),
-          React.createElement('div',{className:'text-xs truncate',style:{color:activeChannel?.id===ch.id?'#94a3b8':'#64748b'}},ch.platform)
-        ),
-        React.createElement('span',{className:'w-2 h-2 rounded-full '+(ch.status==='online'?'bg-green-400':'bg-gray-500')})
-      ))
+    // 渠道 + 会话列表（二级合并）
+    React.createElement('div',{className:'flex-1 overflow-y-auto scrollbar px-2 py-2'},
+      channels.map(ch => {
+        const isExpanded = expandedChannels.includes(ch.id);
+        const channelConvs = conversations.filter(c => c.channel_id === ch.id);
+        const channelUnread = channelConvs.reduce((sum,c) => sum + (unreadCounts[c.id]||0), 0);
+        return React.createElement('div',{key:ch.id, className:'mb-1'},
+          // 渠道标题行（可点击展开/折叠）
+          React.createElement('div',{
+            onClick: () => toggleChannel(ch.id),
+            className:'sidebar-item flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer text-sm'
+          },
+            // 展开/折叠箭头
+            React.createElement('span',{className:'text-xs text-gray-400 transition-transform '+(isExpanded?'rotate-0':'-rotate-90'),style:{display:'inline-block',transition:'transform 0.15s'}},'▼'),
+            // 渠道图标
+            React.createElement('span',{className:'text-lg'},ch.icon),
+            // 渠道名称
+            React.createElement('div',{className:'flex-1 min-w-0'},
+              React.createElement('div',{className:'truncate text-white'},ch.name),
+              React.createElement('div',{className:'text-xs truncate',style:{color:'#94a3b8'}},ch.platform)
+            ),
+            // 会话数 badge
+            channelConvs.length > 0 && React.createElement('span',{className:'text-xs px-1.5 py-0.5 rounded-full '+(channelUnread>0?'bg-indigo-500 text-white':'bg-white/10 text-gray-400')},
+              channelUnread > 0 ? channelUnread : channelConvs.length
+            ),
+            // 在线状态点
+            React.createElement('span',{className:'w-2 h-2 rounded-full '+(ch.status==='online'?'bg-green-400':'bg-gray-500')})
+          ),
+          // 展开的会话列表
+          isExpanded && React.createElement('div',{className:'ml-4 border-l border-white/10 pl-2'},
+            channelConvs.length === 0
+              ? React.createElement('div',{className:'text-center text-gray-500 py-4 text-xs'},'暂无会话')
+              : channelConvs.map(conv => React.createElement('div',{key:conv.id,onClick:()=>setActiveConv(conv),
+                  className:'sidebar-item flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer '+(activeConv?.id===conv.id?'bg-white/10':'')},
+                  React.createElement('div',{className:'w-8 h-8 rounded-full bg-indigo-500/30 flex items-center justify-center text-white text-xs flex-shrink-0'},
+                    (conv.user_nickname||conv.user_id||'?').charAt(0).toUpperCase()
+                  ),
+                  React.createElement('div',{className:'flex-1 min-w-0'},
+                    React.createElement('div',{className:'flex items-center justify-between'},
+                      React.createElement('span',{className:'text-white text-sm truncate'},conv.user_nickname || conv.user_id?.slice(0,8) || '匿名用户'),
+                      React.createElement('span',{className:'text-gray-500 text-xs'},fmtTime(conv.last_message_at))
+                    ),
+                    React.createElement('div',{className:'flex items-center justify-between mt-0.5'},
+                      React.createElement('span',{className:'text-gray-400 text-xs truncate'},conv.last_message_preview || '无消息'),
+                      unreadCounts[conv.id] > 0 && React.createElement('span',{className:'bg-indigo-500 text-white text-xs rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center'},unreadCounts[conv.id])
+                    ),
+                    React.createElement('div',{className:'mt-0.5'},
+                      conv.status==='agent' ? React.createElement('span',{className:'text-yellow-400 text-xs'},'🧑 人工接管中') :
+                      conv.status==='closed' ? React.createElement('span',{className:'text-gray-600 text-xs'},'🔒 已结束') :
+                      React.createElement('span',{className:'text-green-400 text-xs'},'🤖 AI 服务中')
+                    )
+                  )
+                ))
+          )
+        );
+      })
     ),
-    React.createElement('div',{className:'flex-1 overflow-hidden flex flex-col'},
-      React.createElement('div',{className:'px-3 py-2 flex items-center justify-between'},
-        React.createElement('span',{className:'text-gray-500 text-xs uppercase tracking-wider font-medium'},'会话'),
-        React.createElement('span',{className:'text-gray-500 text-xs'},conversations.length)
-      ),
-      React.createElement('div',{className:'flex-1 overflow-y-auto scrollbar px-2'},
-        conversations.length===0
-          ? React.createElement('div',{className:'text-center text-gray-500 py-10 text-sm'},'暂无会话',React.createElement('br'),React.createElement('span',{className:'text-gray-600 text-xs'},'等待客户发送消息'))
-          : conversations.map(conv => React.createElement('div',{key:conv.id,onClick:()=>setActiveConv(conv),
-              className:'sidebar-item flex items-start gap-3 px-3 py-3 rounded-lg cursor-pointer '+(activeConv?.id===conv.id?'bg-white/10':'')},
-              React.createElement('div',{className:'w-9 h-9 rounded-full bg-indigo-500/30 flex items-center justify-center text-white text-sm flex-shrink-0'},
-                (conv.user_nickname||conv.user_id||'?').charAt(0).toUpperCase()
-              ),
-              React.createElement('div',{className:'flex-1 min-w-0'},
-                React.createElement('div',{className:'flex items-center justify-between'},
-                  React.createElement('span',{className:'text-white text-sm truncate'},conv.user_nickname || conv.user_id?.slice(0,8) || '匿名用户'),
-                  React.createElement('span',{className:'text-gray-500 text-xs'},fmtTime(conv.last_message_at))
-                ),
-                React.createElement('div',{className:'flex items-center justify-between mt-1'},
-                  React.createElement('span',{className:'text-gray-400 text-xs truncate'},conv.last_message_preview || '无消息'),
-                  unreadCounts[conv.id] > 0 && React.createElement('span',{className:'bg-indigo-500 text-white text-xs rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center'},unreadCounts[conv.id])
-                ),
-                React.createElement('div',{className:'mt-1'},
-                  conv.status==='agent' ? React.createElement('span',{className:'text-yellow-400 text-xs'},'🧑 人工接管中') :
-                  conv.status==='closed' ? React.createElement('span',{className:'text-gray-600 text-xs'},'🔒 已结束') :
-                  React.createElement('span',{className:'text-green-400 text-xs'},'🤖 AI 服务中')
-                )
-              )
-            ))
-      )
-    ),
+    // Bottom buttons
     React.createElement('div',{className:'p-3 border-t border-white/10'},
       React.createElement('button',{onClick:onSettings,
         className:'w-full text-gray-300 text-sm py-2 rounded-lg hover:bg-white/5 transition flex items-center justify-center gap-2 mb-1'},
@@ -437,7 +460,6 @@ function SettingsModal({onClose}) {
 // Workbench
 function Workbench(){
   const [channels]=useState(CHANNELS);
-  const [activeChannel,setActiveChannel]=useState(CHANNELS[0]);
   const [conversations,setConversations]=useState([]);
   const [activeConv,setActiveConv]=useState(null);
   const [messages,setMessages]=useState([]);
@@ -445,7 +467,8 @@ function Workbench(){
   const [unreadCounts,setUnreadCounts]=useState({});
   const [loading,setLoading]=useState(true);
   const [showSettings,setShowSettings]=useState(false);
-  
+  const [expandedChannels,setExpandedChannels]=useState(['wxshop','wxmini']); // 默认展开在线渠道
+
   const fetchSessions = useCallback(async () => {
     try {
       const data = await api('/sessions');
@@ -527,7 +550,7 @@ function Workbench(){
   
   return React.createElement('div',{className:'h-screen flex'},
     React.createElement('div',{className:'w-72 flex-shrink-0'},
-      React.createElement(Sidebar,{channels,activeChannel,setActiveChannel,conversations,activeConv,setActiveConv,unreadCounts,onSettings:()=>setShowSettings(true)})
+      React.createElement(Sidebar,{channels,conversations,activeConv,setActiveConv,unreadCounts,expandedChannels,setExpandedChannels,onSettings:()=>setShowSettings(true)})
     ),
     React.createElement(ChatArea,{activeConv,messages,onSend:handleSend,onTakeover:handleTakeover,onHandback:handleHandback,onClose:handleClose,status:activeConv?.status||'ai'}),
     React.createElement(RightPanel,{activeConv,quickReplies,onUseQuickReply:handleUseQR}),
