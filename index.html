@@ -356,15 +356,8 @@ function SettingsModal({onClose}) {
     React.createElement('div',{className:'bg-white rounded-2xl p-8'},React.createElement('p',null,'加载中...'))
   );
 
-  const [agentInfo,setAgentInfo]=useState(null);
-  useEffect(()=>{
-    if(tab==='agent' && !agentInfo) {
-      fetch('https://qt1.chengyujewelry.cn/api/kf/agent/info').then(r=>r.json()).then(setAgentInfo).catch(()=>setAgentInfo({error:'无法获取'}));
-    }
-  },[tab]);
-
-  const tabs = ['ai','channels','facts','quick','agent'];
-  const tabNames = {ai:'AI模型',channels:'渠道提示词',facts:'品牌知识',quick:'快捷回复',agent:'Agent配置'};
+  const tabs = ['ai','channels','facts','quick'];
+  const tabNames = {ai:'AI模型',channels:'渠道提示词',facts:'品牌知识',quick:'快捷回复'};
 
   return React.createElement('div',{className:'fixed inset-0 bg-black/40 flex items-center justify-center z-50',onClick:(e)=>{if(e.target===e.currentTarget)onClose()}},
     React.createElement('div',{className:'bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden'},
@@ -434,55 +427,7 @@ function SettingsModal({onClose}) {
               React.createElement('p',{className:'text-xs text-gray-500 truncate'},qr.content)
             ),
             React.createElement('button',{onClick:()=>delQR(qr.id),className:'ml-3 text-red-400 hover:text-red-600 text-lg leading-none'},'×')
-          )),
-        tab==='agent' && React.createElement('div',{className:'space-y-4'},
-          !agentInfo ? React.createElement('p',{className:'text-sm text-gray-400'},'加载中...') :
-          agentInfo.error ? React.createElement('p',{className:'text-sm text-red-500'},'⚠️ 无法获取 Agent 信息') :
-          React.createElement('div',{className:'space-y-3'},
-            React.createElement('div',{className:'flex items-center gap-3 p-4 rounded-xl border',style:{borderColor:'var(--border)',background:'#f8fafc'}},
-              React.createElement('div',{className:'w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center'},
-                React.createElement('span',{className:'text-indigo-600 font-bold text-lg'},'R')
-              ),
-              React.createElement('div',{className:'flex-1'},
-                React.createElement('p',{className:'font-semibold text-base',style:{color:'var(--text-primary)'}},agentInfo.name || 'RSNY 智能客服'),
-                React.createElement('div',{className:'flex items-center gap-2 mt-1'},
-                  React.createElement('span',{className:'text-xs px-2 py-0.5 rounded-full '+(agentInfo.online ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')},agentInfo.online ? '● 在线' : '○ 离线'),
-                  React.createElement('span',{className:'text-xs text-gray-400'},'v'+agentInfo.version)
-                )
-              )
-            ),
-            React.createElement('div',{className:'grid grid-cols-2 gap-3'},
-              React.createElement('div',{className:'p-3 rounded-lg border',style:{borderColor:'var(--border)'}},
-                React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},'Agent ID'),
-                React.createElement('p',{className:'text-sm font-medium mt-1',style:{color:'var(--text-primary)'}},agentInfo.agentId || 'tianba_bro')
-              ),
-              React.createElement('div',{className:'p-3 rounded-lg border',style:{borderColor:'var(--border)'}},
-                React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},'渠道'),
-                React.createElement('p',{className:'text-sm font-medium mt-1',style:{color:'var(--text-primary)'}},agentInfo.channel || 'mini_program')
-              ),
-              React.createElement('div',{className:'p-3 rounded-lg border col-span-2',style:{borderColor:'var(--border)'}},
-                React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},'AI 模型'),
-                React.createElement('p',{className:'text-sm font-medium mt-1 font-mono',style:{color:'var(--text-primary)'}},agentInfo.model || '-')
-              ),
-              React.createElement('div',{className:'p-3 rounded-lg border col-span-2',style:{borderColor:'var(--border)'}},
-                React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},'API 端点'),
-                React.createElement('p',{className:'text-sm font-medium mt-1 font-mono truncate',style:{color:'var(--text-primary)'}},agentInfo.apiEndpoint || '-')
-              ),
-              React.createElement('div',{className:'p-3 rounded-lg border',style:{borderColor:'var(--border)'}},
-                React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},'品牌知识数'),
-                React.createElement('p',{className:'text-sm font-medium mt-1',style:{color:'var(--text-primary)'}},agentInfo.brandKnowledgeCount || 0)
-              ),
-              React.createElement('div',{className:'p-3 rounded-lg border',style:{borderColor:'var(--border)'}},
-                React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},'最后更新'),
-                React.createElement('p',{className:'text-sm font-medium mt-1',style:{color:'var(--text-primary)'}},agentInfo.updatedAt ? new Date(agentInfo.updatedAt).toLocaleString('zh-CN') : '-')
-              ),
-              React.createElement('div',{className:'p-3 rounded-lg border col-span-2',style:{borderColor:'var(--border)'}},
-                React.createElement('p',{className:'text-xs',style:{color:'var(--text-muted)'}},'供应商'),
-                React.createElement('p',{className:'text-sm font-medium mt-1',style:{color:'var(--text-primary)'}},agentInfo.provider || '-')
-              )
-            ),
-            React.createElement('p',{className:'text-xs text-gray-400 pt-2'},'💡 数据来源：/api/kf/agent/info')
-          )
+          ))
         )
       )
     )
