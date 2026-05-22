@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RSNY 数据看板</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root{--bg:#f8f9fc;--card:#fff;--text:#1a1a2e;--sub:#6b7280;--accent:#6366f1}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--text)}
+.header{background:var(--card);padding:20px 32px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:22px;font-weight:700}
+.header .total{font-size:14px;color:var(--sub);background:#f1f5f9;padding:6px 14px;border-radius:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(450px,1fr));gap:20px;padding:24px 32px}
+.card{background:var(--card);border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card h3{font-size:15px;font-weight:600;margin-bottom:14px;color:var(--text)}
+.chart{width:100%;height:380px}
+.loading{text-align:center;padding:80px 20px;color:var(--sub);font-size:16px}
+.error{text-align:center;padding:80px 20px;color:#ef4444;font-size:14px}
+.status-row{display:flex;gap:24px;justify-content:center;padding:20px 0}
+.status-item{text-align:center}
+.status-item .num{font-size:36px;font-weight:700;color:var(--accent)}
+.status-item .lbl{font-size:13px;color:var(--sub);margin-top:4px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const API = 'https://qt1.chengyujewelry.cn/api/charts/data';
+
+function PieChart({ data, title, domId }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current || !data?.length) return;
+    const chart = echarts.init(ref.current);
+    chart.setOption({
+      title: { text: title, left: 'center', textStyle: { fontSize: 14, fontWeight: 600 } },
+      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      series: [{
+        type: 'pie', radius: ['40%','70%'], center: ['50%','55%'],
+        data: data.slice(0,15),
+        emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,.2)' } },
+        label: { formatter: '{b}\n{d}%', fontSize: 11 }
+      }]
+    });
+    return () => chart.dispose();
+  }, [data]);
+  return <div ref={ref} className="chart"></div>;
+}
+
+function BarChart({ data, title, domId }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current || !data?.length) return;
+    const chart = echarts.init(ref.current);
+    chart.setOption({
+      title: { text: title, left: 'center', textStyle: { fontSize: 14, fontWeight: 600 } },
+      tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', data: data.map(d=>d.name), axisLabel: { rotate: 30, fontSize: 11 } },
+      yAxis: { type: 'value' },
+      series: [{
+        type: 'bar', data: data.map(d=>d.value),
+        itemStyle: { color: '#6366f1', borderRadius: [4,4,0,0] }
+      }],
+      grid: { top: 50, bottom: 80, left: 50, right: 20 }
+    });
+    return () => chart.dispose();
+  }, [data]);
+  return <div ref={ref} className="chart"></div>;
+}
+
+function App() {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    fetch(API).then(r => r.json()).then(d => {
+      if (d.ok) setData(d);
+      else setErr(d.error || '加载失败');
+    }).catch(e => setErr(e.message));
+  }, []);
+
+  if (err) return <div className="error">加载失败: {err}</div>;
+  if (!data) return <div className="loading">加载中...</div>;
+
+  return (
+    <div>
+      <div className="header">
+        <h1>📊 RSNY 数据看板</h1>
+        <span className="total">共 {data.total} 件商品</span>
+      </div>
+
+      <div className="card" style={{margin:'20px 32px',padding:'12px 20px'}}>
+        <div className="status-row">
+          <div className="status-item"><div className="num">{data.status['在售']}</div><div className="lbl">在售</div></div>
+          <div className="status-item"><div className="num">{data.status['淘汰']}</div><div className="lbl">已淘汰</div></div>
+        </div>
+      </div>
+
+      <div className="grid">
+        <div className="card"><PieChart data={data.category} title="系列分类分布" /></div>
+        <div className="card"><BarChart data={data.price} title="价格区间分布" /></div>
+        <div className="card"><PieChart data={data.material} title="材质分布 (Top 15)" /></div>
+        <div className="card"><PieChart data={data.color} title="颜色分布 (Top 20)" /></div>
+      </div>
+
+      <div style={{textAlign:'center',padding:'24px',color:'var(--sub)',fontSize:'12px'}}>
+        数据来源: 飞书多维表 · 自动更新
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
