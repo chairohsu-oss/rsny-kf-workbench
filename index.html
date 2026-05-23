@@ -108,13 +108,13 @@ function LoginPage(){
 }
 
 /* ─── ChannelBar (~70px) ─── */
-function ChannelBar({channels,activeChannelId,onSelect,unreadCounts,conversations,onSettings}){
+function ChannelBar({channels,activeChannelId,onSelect,unreadCounts,conversations,readBaselines,effectiveUnreadFor,onSettings}){
   return React.createElement('div',{className:'flex flex-col h-full select-none',style:{width:'160px',background:'#f7f7f8',borderRight:'1px solid #e5e5e5'}},
     React.createElement('div',{className:'flex-1 overflow-y-auto sb pt-3'},
       channels.map(ch=>{
         const isActive=activeChannelId===ch.id;
-        const chUnread=conversations.filter(c=>c.channel_id===ch.id).reduce((s,c)=>s+Math.max(unreadCounts[c.id]||0,c.unread_count||0),0);
-        const chUnreadConvs=conversations.filter(c=>c.channel_id===ch.id && Math.max(unreadCounts[c.id]||0,c.unread_count||0)>0).length;
+        const chUnread=conversations.filter(c=>c.channel_id===ch.id).reduce((sum,c)=>sum+effectiveUnreadFor(c),0);
+        const chUnreadConvs=conversations.filter(c=>c.channel_id===ch.id&&effectiveUnreadFor(c)>0).length;
         return React.createElement('div',{key:ch.id,onClick:()=>onSelect(ch.id),
           className:'relative flex flex-col items-center justify-center cursor-pointer transition-colors',
           style:{height:'72px',background:isActive?'#fff':'transparent',borderLeft:isActive?'3px solid #07C160':'3px solid transparent'}},
@@ -133,7 +133,7 @@ function ChannelBar({channels,activeChannelId,onSelect,unreadCounts,conversation
 }
 
 /* ─── ConversationList (~240px) ─── */
-function ConversationList({conversations,activeConv,onSelect,unreadCounts}){
+function ConversationList({conversations,activeConv,onSelect,unreadCounts,readBaselines,effectiveUnreadFor}){
   return React.createElement('div',{className:'flex flex-col h-full',style:{width:'240px',background:'#fff',borderRight:'1px solid #e5e5e5'}},
     React.createElement('div',{className:'px-3 py-3 border-b',style:{borderColor:'#ececf1'}},
       React.createElement('span',{className:'font-semibold text-sm'},'会话'),
@@ -148,7 +148,7 @@ function ConversationList({conversations,activeConv,onSelect,unreadCounts}){
         )
       :conversations.map(conv=>{
         const isActive=activeConv?.id===conv.id;
-        const unread=Math.max(unreadCounts[conv.id]||0,conv.unread_count||0);
+        const unread=effectiveUnreadFor(conv);
         const isHandled=conv.handler==='human';
         return React.createElement('div',{key:conv.id,onClick:()=>onSelect(conv),
           className:'flex items-start gap-2.5 px-3 py-3 cursor-pointer transition-colors',
@@ -179,7 +179,7 @@ function ConversationList({conversations,activeConv,onSelect,unreadCounts}){
 }
 
 /* ─── ChatArea (flex:1) ─── */
-function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,quickReplies}){
+function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,quickReplies,onMarkRead}){
   const[input,setInput]=useState('');
   const[showQuick,setShowQuick]=useState(false);
   const endRef=useRef(null);
@@ -192,6 +192,7 @@ function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,quic
 
   const send=()=>{if(!input.trim()||!activeConv||isClosed)return;onSend(input.trim());setInput('');if(taRef.current)taRef.current.style.height='auto';};
   const handleKey=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}};
+  const handleFocus=()=>{if(activeConv&&onMarkRead)onMarkRead(activeConv);};
   const autoResize=()=>{if(taRef.current){taRef.current.style.height='auto';taRef.current.style.height=Math.min(taRef.current.scrollHeight,120)+'px';}};
 
   if(!activeConv)return React.createElement('div',{className:'flex-1 flex items-center justify-center',style:{background:'#fff'}},
@@ -282,7 +283,7 @@ function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,quic
           React.createElement('button',{onClick:()=>setShowQuick(!showQuick),className:'p-1.5 rounded hover:bg-gray-100 transition',title:'快捷回复',style:{color:showQuick?'#666':'#8e8ea0'}},Icons.quick)
         ),
         React.createElement('div',{className:'px-4 pb-3'},
-          React.createElement('textarea',{ref:taRef,value:input,onChange:e=>{setInput(e.target.value);autoResize();},onKeyDown:handleKey,
+          React.createElement('textarea',{ref:taRef,value:input,onChange:e=>{setInput(e.target.value);autoResize();},onKeyDown:handleKey,onFocus:handleFocus,
             placeholder:isHandling?'以人工客服身份回复... (Enter发送, Shift+Enter换行)':'输入消息... (Enter发送)',
             className:'w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2',style:{borderColor:'#e5e5e5',minHeight:'40px',maxHeight:'120px',lineHeight:'1.5',focusRingColor:'#66630'},rows:1}),
           React.createElement('div',{className:'flex justify-end mt-2'},
@@ -577,6 +578,7 @@ function Workbench(){
   const[messages,setMessages]=useState([]);
   const[quickReplies,setQuickReplies]=useState([]);
   const[unreadCounts,setUnreadCounts]=useState({});
+  const[readBaselines,setReadBaselines]=useState({});
   const[activeChannelId,setActiveChannelId]=useState('wxmini');
   const[loading,setLoading]=useState(true);
   const[showSettings,setShowSettings]=useState(false);
@@ -661,15 +663,31 @@ function Workbench(){
     )
   );
 
+  // Calculate effective unread for a conversation (accounts for read baseline)
+  const effectiveUnreadFor=(conv)=>{
+    const serverCount=conv.unread_count||0;
+    const baseline=readBaselines[conv.id]||0;
+    const localCount=unreadCounts[conv.id]||0;
+    return Math.max(localCount,serverCount-baseline);
+  };
+
+  // Mark a conversation as read (updates baseline and clears local count)
+  const markRead=(conv)=>{
+    if(!conv)return;
+    setReadBaselines(prev=>({...prev,[conv.id]:conv.unread_count||0}));
+    setUnreadCounts(prev=>{const n={...prev};delete n[conv.id];return n;});
+  };
+
   const handleSelectConv=(conv)=>{
     setUnreadCounts(prev=>{const n={...prev};delete n[conv.id];return n;});
+    setReadBaselines(prev=>({...prev,[conv.id]:conv.unread_count||0}));
     setActiveConv(conv);
   };
 
   return React.createElement('div',{className:'h-screen flex'},
-    React.createElement(ChannelBar,{channels:CHANNELS,activeChannelId,onSelect:setActiveChannelId,unreadCounts,conversations,onSettings:()=>setShowSettings(true)}),
-    React.createElement(ConversationList,{conversations:filteredConversations,activeConv,onSelect:handleSelectConv,unreadCounts}),
-    React.createElement(ChatArea,{activeConv,messages,onSend:handleSend,onTakeover:handleTakeover,onHandback:handleHandback,onClose:handleClose,quickReplies}),
+    React.createElement(ChannelBar,{channels:CHANNELS,activeChannelId,onSelect:setActiveChannelId,unreadCounts,conversations,readBaselines,effectiveUnreadFor,onSettings:()=>setShowSettings(true)}),
+    React.createElement(ConversationList,{conversations:filteredConversations,activeConv,onSelect:handleSelectConv,unreadCounts,readBaselines,effectiveUnreadFor}),
+    React.createElement(ChatArea,{activeConv,messages,onSend:handleSend,onTakeover:handleTakeover,onHandback:handleHandback,onClose:handleClose,quickReplies,onMarkRead:markRead}),
     React.createElement(RightPanel,{activeConv,quickReplies,onUseQuickReply:handleUseQR}),
     showSettings&&React.createElement(SettingsModal,{onClose:()=>setShowSettings(false)})
   );
