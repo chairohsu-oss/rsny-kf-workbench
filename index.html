@@ -17,9 +17,9 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .bubble-user{background:#f0f0f0;color:#1a1a2e;border-radius:18px 2px 18px 18px}
 .bubble-ai{background:#666;color:#fff;border-radius:2px 18px 18px 18px}
 .bubble-agent{background:#f0f0f0;color:#555;border:1px solid #fde68a;border-radius:2px 18px 18px 18px}
-@keyframes ringPulse{0%,100%{box-shadow:0 0 0 3px #ef4444}50%{box-shadow:0 0 0 2px rgba(239,68,68,.4)}}
+@keyframes ringPulse{0%,100%{box-shadow:0 0 0 3px #ef4444,0 0 10px rgba(239,68,68,.45);outline:2px solid #ef4444}50%{box-shadow:0 0 0 5px rgba(239,68,68,.25),0 0 14px rgba(239,68,68,.25);outline:2px solid rgba(239,68,68,.45)}}
 @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
-.unread-ring{animation:ringPulse 1.4s ease-in-out infinite,floatY 2s ease-in-out infinite}
+.unread-ring{position:relative;animation:ringPulse 1.1s ease-in-out infinite,floatY 1.8s ease-in-out infinite}
 .btn-primary{background:#555;color:#fff;border:none;cursor:pointer;transition:background .15s,transform .1s}.btn-primary:hover{background:#444}.btn-primary:active{transform:scale(.97)}
 .btn-secondary{background:#8e8ea0;color:#fff;border:none;cursor:pointer;transition:background .15s,transform .1s}.btn-secondary:hover{background:#7a7a8a}.btn-secondary:active{transform:scale(.97)}
 .btn-danger{background:#8e8ea0;color:#fff;border:none;cursor:pointer;transition:background .15s,transform .1s}.btn-danger:hover{background:#6b6b7a}.btn-danger:active{transform:scale(.97)}
@@ -113,7 +113,7 @@ function ChannelBar({channels,activeChannelId,onSelect,unreadCounts,conversation
     React.createElement('div',{className:'flex-1 overflow-y-auto sb pt-3'},
       channels.map(ch=>{
         const isActive=activeChannelId===ch.id;
-        const chUnread=conversations.filter(c=>c.channel_id===ch.id).reduce((s,c)=>s+(unreadCounts[c.id]||0),0);
+        const chUnread=conversations.filter(c=>c.channel_id===ch.id).reduce((s,c)=>s+Math.max(unreadCounts[c.id]||0,c.unread_count||0),0);
         const chTotal=conversations.filter(c=>c.channel_id===ch.id).length;
         return React.createElement('div',{key:ch.id,onClick:()=>onSelect(ch.id),
           className:'relative flex flex-col items-center justify-center cursor-pointer transition-colors',
@@ -148,7 +148,7 @@ function ConversationList({conversations,activeConv,onSelect,unreadCounts}){
         )
       :conversations.map(conv=>{
         const isActive=activeConv?.id===conv.id;
-        const unread=unreadCounts[conv.id]||0;
+        const unread=Math.max(unreadCounts[conv.id]||0,conv.unread_count||0);
         const isHandled=conv.handler==='human';
         return React.createElement('div',{key:conv.id,onClick:()=>onSelect(conv),
           className:'flex items-start gap-2.5 px-3 py-3 cursor-pointer transition-colors',
