@@ -408,7 +408,10 @@ function RightPanel({activeConv,quickReplies,onUseQuickReply,onSendProduct}){
             ),
             p.selling_summary&&React.createElement('p',{className:'text-xs leading-relaxed',style:{color:'#666'}},p.selling_summary.slice(0,120)+(p.selling_summary.length>120?'…':''))
           ),
-          React.createElement('button',{onClick:()=>onSendProduct&&onSendProduct(p),className:'mt-2 w-full py-1.5 rounded-lg text-xs font-medium text-white btn-primary',style:{background:'#555'}},'发送给客户')
+          React.createElement('div',{className:'flex gap-2 mt-2'},
+            React.createElement('button',{onClick:()=>onSendProduct&&onSendProduct(p),className:'flex-1 py-1.5 rounded-lg text-xs font-medium text-white btn-primary',style:{background:'#555'}},'发送给客户'),
+            p.jump_url&&React.createElement('button',{onClick:()=>window.open(p.jump_url,'_blank'),className:'flex-1 py-1.5 rounded-lg text-xs font-medium border',style:{borderColor:'#e5e5e5',color:'#666'}},'打开商品')
+          )
         )),
         !ps&&pr.length===0&&pq&&React.createElement('p',{className:'text-sm text-center py-4',style:{color:'#8e8ea0'}},'未找到商品')
       ),
@@ -447,11 +450,22 @@ function RightPanel({activeConv,quickReplies,onUseQuickReply,onSendProduct}){
           ),
           lmsg&&React.createElement('p',{className:'text-xs mb-2',style:{color:lres&&lres.status!=='200'&&lres.status!=='0'?'#e74c3c':'#8e8ea0'}},lmsg),
           lres&&lres.result&&lres.result.list&&lres.result.list.length>0&&React.createElement('div',{className:'bg-white rounded-lg border p-3',style:{borderColor:'#e5e5e5'}},
-            React.createElement('p',{className:'text-xs mb-2 font-medium'},lres.result.number+' ('+lres.result.type+')'),
-            React.createElement('div',{className:'space-y-2 max-h-56 overflow-y-auto sb'},
-              lres.result.list.map((item,i)=>React.createElement('div',{key:i,className:'flex gap-2 text-xs',style:{color:'#666'}},
-                React.createElement('span',{className:'text-gray-400 flex-shrink-0'},item.time||''),
-                React.createElement('span',null,item.context||'')
+            React.createElement('div',{className:'flex items-center justify-between mb-2'},
+              React.createElement('p',{className:'text-xs font-medium'},'单号 '+lres.result.number),
+              React.createElement('span',{className:'text-xs px-2 py-0.5 rounded-full',style:{background:'#f0f0f0',color:'#666'}},lres.result.type||'')
+            ),
+            lres.result.status&&lres.result.status!=='200'&&lres.result.status!=='0'&&React.createElement('p',{className:'text-xs mb-2',style:{color:'#e74c3c'}},lres.msg||''),
+            React.createElement('div',{className:'space-y-3 max-h-64 overflow-y-auto sb'},
+              lres.result.list.map((item,i)=>React.createElement('div',{key:i,className:'flex gap-3'},
+                React.createElement('div',{className:'flex flex-col items-center flex-shrink-0'},
+                  React.createElement('div',{className:'w-2 h-2 rounded-full mt-1',style:{background:i===0?'#07C160':'#d1d5db'}}),
+                  i<lres.result.list.length-1&&React.createElement('div',{className:'w-px flex-1',style:{background:'#e5e5e5'}})
+                ),
+                React.createElement('div',{className:'flex-1 pb-1'},
+                  React.createElement('p',{className:'text-xs font-medium',style:{color:'#1a1a2e'}},item.time||''),
+                  item.status&&React.createElement('p',{className:'text-[10px] mt-0.5',style:{color:'#8e8ea0'}},'状态：'+(item.status||'')),
+                  React.createElement('p',{className:'text-xs mt-1 leading-relaxed',style:{color:'#444'}},item.context||'')
+                )
               ))
             )
           )
@@ -813,6 +827,7 @@ function Workbench(){
     if(p.price)lines.push('价格：¥'+p.price);
     if(p.material)lines.push('材质：'+p.material);
     if(p.selling_summary)lines.push('卖点：'+p.selling_summary.slice(0,120));
+    if(p.jump_url)lines.push('商品链接：'+p.jump_url);
     handleSend(lines.join('\n'));
   };
 
