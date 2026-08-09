@@ -365,78 +365,78 @@ function RightPanel({activeConv,quickReplies,onUseQuickReply,onSendProduct}){
     {icon:'📊',label:'菜单点击',desc:'用户历史菜单点击记录'},
   ]:[];
 
-  return React.createElement('div',{className:'flex flex-col h-full',style:{width:'280px',background:'#f7f7f8',borderLeft:'1px solid #e5e5e5'}},
+  return React.createElement('div',{className:'flex flex-col h-full',style:{width:'330px',background:'#f7f7f8',borderLeft:'1px solid #e5e5e5'}},
     React.createElement('div',{className:'flex border-b',style:{borderColor:'#ececf1'}},
       ['customer','products','quick'].map(t=>React.createElement('button',{key:t,onClick:()=>setTab(t),
-        className:'flex-1 py-3 text-xs font-medium transition',
+        className:'flex-1 py-3 text-sm font-medium transition',
         style:{color:tab===t?'#666':'#8e8ea0',borderBottom:tab===t?'2px solid #666':'2px solid transparent'}},
         t==='customer'?'客户':t==='products'?'商品':'工具'
       ))
     ),
-    React.createElement('div',{className:'flex-1 overflow-y-auto sb p-4'},
+    React.createElement('div',{className:'flex-1 overflow-y-auto sb p-5'},
       /* ── 客户 ── */
       tab==='customer'&&React.createElement('div',null,
-        React.createElement('h3',{className:'font-semibold text-sm mb-3'},'客户信息'),
+        React.createElement('h3',{className:'font-semibold text-base mb-3'},'客户信息'),
         activeConv?React.createElement('div',{className:'space-y-3'},
           customerFields.map((f,i)=>React.createElement('div',{key:i},
-            React.createElement('label',{className:'text-xs',style:{color:'#8e8ea0'}},f.l),
-            React.createElement('p',{className:'text-sm mt-0.5',style:{color:'#1a1a2e'}},f.v)
+            React.createElement('label',{className:'text-sm',style:{color:'#8e8ea0'}},f.l),
+            React.createElement('p',{className:'text-base mt-0.5',style:{color:'#1a1a2e'}},f.v)
           ))
-        ):React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},'选择会话查看客户信息')
+        ):React.createElement('p',{className:'text-base',style:{color:'#8e8ea0'}},'选择会话查看客户信息')
       ),
       /* ── 商品 ── */
       tab==='products'&&React.createElement('div',null,
-        React.createElement('h3',{className:'font-semibold text-sm mb-3'},'商品查询'),
-        React.createElement('div',{className:'flex gap-2 mb-3'},
+        React.createElement('h3',{className:'font-semibold text-base mb-3'},'商品查询'),
+        React.createElement('div',{className:'flex gap-2 mb-4'},
           React.createElement('input',{value:pq,onChange:e=>setPq(e.target.value),onKeyDown:e=>e.key==='Enter'&&searchP(pq),placeholder:'搜索商品名称或货号...',
-            className:'flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'}}),
-          React.createElement('button',{onClick:()=>searchP(pq),className:'px-3 py-2 text-white rounded-lg text-xs font-medium',style:{background:'#666'}},'搜索')
+            className:'flex-1 px-3 py-2 border rounded-lg text-base focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'}}),
+          React.createElement('button',{onClick:()=>searchP(pq),className:'px-3 py-2 text-white rounded-lg text-sm font-medium',style:{background:'#666'}},'搜索')
         ),
-        ps&&React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},'搜索中...'),
+        ps&&React.createElement('p',{className:'text-base',style:{color:'#8e8ea0'}},'搜索中...'),
         pr.map(p=>React.createElement('div',{key:p.id,className:'p-3 mb-2 bg-white rounded-lg border',style:{borderColor:'#e5e5e5'}},
           React.createElement('div',{className:'flex items-center gap-3'},
-            React.createElement('div',{className:'w-10 h-10 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center text-gray-400 text-xs'},'无图'),
+            React.createElement('div',{className:'w-10 h-10 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center text-gray-400 text-sm'},'无图'),
             React.createElement('div',{className:'flex-1 min-w-0'},
-              React.createElement('p',{className:'text-sm font-medium truncate'},p.name),
-              React.createElement('p',{className:'text-xs',style:{color:'#8e8ea0'}},p.product_code||'N/A')
+              React.createElement('p',{className:'text-base font-medium truncate'},p.name),
+              React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},p.product_code||'N/A')
             )
           ),
           (p.price||p.material||p.selling_summary)&&React.createElement('div',{className:'mt-2 pt-2 border-t',style:{borderColor:'#f0f0f0'}},
             React.createElement('div',{className:'flex items-center gap-2 mb-1'},
-              p.price&&React.createElement('span',{className:'text-xs font-semibold',style:{color:'#e74c3c'}},'¥'+p.price),
-              p.material&&React.createElement('span',{className:'text-xs',style:{color:'#8e8ea0'}},'材质:'+p.material)
+              p.price&&React.createElement('span',{className:'text-sm font-semibold',style:{color:'#e74c3c'}},'¥'+p.price),
+              p.material&&React.createElement('span',{className:'text-sm',style:{color:'#8e8ea0'}},'材质:'+p.material)
             ),
-            p.selling_summary&&React.createElement('p',{className:'text-xs leading-relaxed',style:{color:'#666'}},p.selling_summary.slice(0,120)+(p.selling_summary.length>120?'…':''))
+            p.selling_summary&&React.createElement('p',{className:'text-sm leading-relaxed',style:{color:'#666'}},p.selling_summary.slice(0,120)+(p.selling_summary.length>120?'…':''))
           ),
           React.createElement('div',{className:'flex gap-2 mt-2'},
-            React.createElement('button',{onClick:()=>onSendProduct&&onSendProduct(p),className:'flex-1 py-1.5 rounded-lg text-xs font-medium text-white btn-primary',style:{background:'#555'}},'发送给客户'),
-            p.jump_url&&React.createElement('button',{onClick:()=>window.open(p.jump_url,'_blank'),className:'flex-1 py-1.5 rounded-lg text-xs font-medium border',style:{borderColor:'#e5e5e5',color:'#666'}},'打开商品')
+            React.createElement('button',{onClick:()=>onSendProduct&&onSendProduct(p),className:'flex-1 py-1.5 rounded-lg text-sm font-medium text-white btn-primary',style:{background:'#555'}},'发送给客户'),
+            p.jump_url&&React.createElement('button',{onClick:()=>window.open(p.jump_url,'_blank'),className:'flex-1 py-1.5 rounded-lg text-sm font-medium border',style:{borderColor:'#e5e5e5',color:'#666'}},'打开商品')
           )
         )),
-        !ps&&pr.length===0&&pq&&React.createElement('p',{className:'text-sm text-center py-4',style:{color:'#8e8ea0'}},'未找到商品')
+        !ps&&pr.length===0&&pq&&React.createElement('p',{className:'text-base text-center py-4',style:{color:'#8e8ea0'}},'未找到商品')
       ),
       /* ── 工具 ── */
       tab==='quick'&&React.createElement(Fragment,null,
-        React.createElement('h3',{className:'font-semibold text-sm mb-3'},quickTools.length>0?'渠道工具':'快捷工具'),
+        React.createElement('h3',{className:'font-semibold text-base mb-3'},quickTools.length>0?'渠道工具':'快捷工具'),
         /* 快捷回复 */
         React.createElement('div',{className:'mb-4'},
-          React.createElement('p',{className:'text-xs mb-2 font-medium',style:{color:'#8e8ea0'}},'快捷回复模板'),
+          React.createElement('p',{className:'text-sm mb-2 font-medium',style:{color:'#8e8ea0'}},'快捷回复模板'),
           (quickReplies||[]).length===0?
-            React.createElement('p',{className:'text-sm',style:{color:'#acacbe'}},'暂无快捷回复'):
+            React.createElement('p',{className:'text-base',style:{color:'#acacbe'}},'暂无快捷回复'):
             (quickReplies||[]).map((qr,i)=>React.createElement('div',{key:i,onClick:()=>onUseQuickReply(qr),
-              className:'p-2.5 bg-white rounded-lg border cursor-pointer hover:border-[#666] hover:shadow-sm transition mb-1.5',style:{borderColor:'#e5e5e5'}},
-              React.createElement('p',{className:'text-sm font-medium'},qr.title),
-              React.createElement('p',{className:'text-xs mt-0.5',style:{color:'#8e8ea0'}},qr.content.slice(0,50)+'…')
+              className:'p-3 bg-white rounded-lg border cursor-pointer hover:border-[#666] hover:shadow-sm transition mb-1.5',style:{borderColor:'#e5e5e5'}},
+              React.createElement('p',{className:'text-base font-medium'},qr.title),
+              React.createElement('p',{className:'text-sm mt-0.5',style:{color:'#8e8ea0'}},qr.content.slice(0,50)+'…')
             ))
         ),
         /* 物流查询（阿里云市场 cmapi021863） */
         React.createElement('div',{className:'mt-4'},
-          React.createElement('p',{className:'text-xs mb-2 font-medium',style:{color:'#8e8ea0'}},'物流查询'),
-          React.createElement('div',{className:'flex gap-2 mb-2'},
-            React.createElement('input',{value:lno,onChange:e=>setLno(e.target.value),placeholder:'输入快递单号...',className:'flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'}}),
-            React.createElement('button',{onClick:queryLogistics,disabled:lloading,className:'px-3 py-2 rounded-lg text-sm font-medium text-white',style:{background:lloading?'#aaa':'#666'}},'查询')
+          React.createElement('p',{className:'text-sm mb-2 font-medium',style:{color:'#8e8ea0'}},'物流查询'),
+          React.createElement('div',{className:'flex gap-2 mb-3'},
+            React.createElement('input',{value:lno,onChange:e=>setLno(e.target.value),placeholder:'输入快递单号...',className:'flex-1 px-3 py-2 border rounded-lg text-base focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'}}),
+            React.createElement('button',{onClick:queryLogistics,disabled:lloading,className:'px-3 py-2 rounded-lg text-base font-medium text-white',style:{background:lloading?'#aaa':'#666'}},'查询')
           ),
-          React.createElement('select',{value:ltype,onChange:e=>setLtype(e.target.value),className:'w-full px-3 py-2 border rounded-lg text-sm mb-2 focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'}},
+          React.createElement('select',{value:ltype,onChange:e=>setLtype(e.target.value),className:'w-full px-3 py-2 border rounded-lg text-base mb-2 focus:outline-none focus:ring-1',style:{borderColor:'#e5e5e5'}},
             React.createElement('option',{value:'auto'},'自动识别快递公司'),
             React.createElement('option',{value:'SF'},'顺丰速运'),
             React.createElement('option',{value:'YTO'},'圆通速递'),
@@ -448,13 +448,13 @@ function RightPanel({activeConv,quickReplies,onUseQuickReply,onSendProduct}){
             React.createElement('option',{value:'ZT'},'宅急送'),
             React.createElement('option',{value:'HT'},'百世快递')
           ),
-          lmsg&&React.createElement('p',{className:'text-xs mb-2',style:{color:lres&&lres.status!=='200'&&lres.status!=='0'?'#e74c3c':'#8e8ea0'}},lmsg),
+          lmsg&&React.createElement('p',{className:'text-sm mb-2',style:{color:lres&&lres.status!=='200'&&lres.status!=='0'?'#e74c3c':'#8e8ea0'}},lmsg),
           lres&&lres.result&&lres.result.list&&lres.result.list.length>0&&React.createElement('div',{className:'bg-white rounded-lg border p-3',style:{borderColor:'#e5e5e5'}},
             React.createElement('div',{className:'flex items-center justify-between mb-2'},
-              React.createElement('p',{className:'text-xs font-medium'},'单号 '+lres.result.number),
-              React.createElement('span',{className:'text-xs px-2 py-0.5 rounded-full',style:{background:'#f0f0f0',color:'#666'}},lres.result.type||'')
+              React.createElement('p',{className:'text-sm font-medium'},'单号 '+lres.result.number),
+              React.createElement('span',{className:'text-sm px-2 py-0.5 rounded-full',style:{background:'#f0f0f0',color:'#666'}},lres.result.type||'')
             ),
-            lres.result.status&&lres.result.status!=='200'&&lres.result.status!=='0'&&React.createElement('p',{className:'text-xs mb-2',style:{color:'#e74c3c'}},lres.msg||''),
+            lres.result.status&&lres.result.status!=='200'&&lres.result.status!=='0'&&React.createElement('p',{className:'text-sm mb-2',style:{color:'#e74c3c'}},lres.msg||''),
             React.createElement('div',{className:'space-y-3 max-h-64 overflow-y-auto sb'},
               lres.result.list.map((item,i)=>React.createElement('div',{key:i,className:'flex gap-3'},
                 React.createElement('div',{className:'flex flex-col items-center flex-shrink-0'},
@@ -462,9 +462,9 @@ function RightPanel({activeConv,quickReplies,onUseQuickReply,onSendProduct}){
                   i<lres.result.list.length-1&&React.createElement('div',{className:'w-px flex-1',style:{background:'#e5e5e5'}})
                 ),
                 React.createElement('div',{className:'flex-1 pb-1'},
-                  React.createElement('p',{className:'text-xs font-medium',style:{color:'#1a1a2e'}},item.time||''),
-                  item.status&&React.createElement('p',{className:'text-[10px] mt-0.5',style:{color:'#8e8ea0'}},'状态：'+(item.status||'')),
-                  React.createElement('p',{className:'text-xs mt-1 leading-relaxed',style:{color:'#444'}},item.context||'')
+                  React.createElement('p',{className:'text-sm font-medium',style:{color:'#1a1a2e'}},item.time||''),
+                  item.status&&React.createElement('p',{className:'text-xs mt-0.5',style:{color:'#8e8ea0'}},'状态：'+(item.status||'')),
+                  React.createElement('p',{className:'text-sm mt-1 leading-relaxed',style:{color:'#444'}},item.context||'')
                 )
               ))
             )
@@ -472,12 +472,12 @@ function RightPanel({activeConv,quickReplies,onUseQuickReply,onSendProduct}){
         ),
         /* 渠道专属工具 */
         quickTools.length>0&&React.createElement(Fragment,null,
-          React.createElement('p',{className:'text-xs mb-2 font-medium',style:{color:'#8e8ea0'}},isWxmini?'小程序工具':isWxshop?'小店工具':'公众号工具'),
+          React.createElement('p',{className:'text-sm mb-2 font-medium',style:{color:'#8e8ea0'}},isWxmini?'小程序工具':isWxshop?'小店工具':'公众号工具'),
           quickTools.map((tool,i)=>React.createElement('div',{key:i,className:'flex items-center gap-3 p-3 bg-white rounded-lg border mb-2 cursor-pointer hover:bg-gray-50 transition',style:{borderColor:'#e5e5e5'}},
             React.createElement('span',{className:'text-lg'},tool.icon),
             React.createElement('div',null,
-              React.createElement('p',{className:'text-sm font-medium'},tool.label),
-              React.createElement('p',{className:'text-xs',style:{color:'#8e8ea0'}},tool.desc)
+              React.createElement('p',{className:'text-base font-medium'},tool.label),
+              React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},tool.desc)
             )
           ))
         )
