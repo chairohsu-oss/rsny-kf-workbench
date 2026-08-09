@@ -307,7 +307,7 @@ function RightPanel({activeConv,quickReplies,onUseQuickReply,onSendProduct}){
   const[lres,setLres]=useState(null);
   const[lmsg,setLmsg]=useState('');
 
-  const searchP=async(q)=>{if(!q.trim()){setPr([]);return;}setPs(true);try{const r=await api('/products/search?q='+encodeURIComponent(q));setPr(r.products||[]);}catch(e){setPr([]);}setPs(false);};
+  const searchP=async(q)=>{if(!q.trim()){setPr([]);return;}setPs(true);try{const r=await api('/products/search?q='+encodeURIComponent(q));setPr(Array.isArray(r)?r:(r.products||[]));}catch(e){setPr([]);}setPs(false);};
 
   const queryLogistics=async()=>{
     if(!lno.trim()){setLmsg('请输入快递单号');return;}
