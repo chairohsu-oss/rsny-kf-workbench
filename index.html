@@ -799,6 +799,9 @@ function Workbench(){
   const[activeChannelId,setActiveChannelId]=useState('wxmini');
   const[loading,setLoading]=useState(true);
   const[showSettings,setShowSettings]=useState(false);
+  const activeChannelIdRef=useRef(activeChannelId);
+
+  useEffect(()=>{activeChannelIdRef.current=activeChannelId;},[activeChannelId]);
 
   // Filter conversations by active channel
   const filteredConversations=conversations.filter(c=>c.channel_id===activeChannelId);
@@ -815,6 +818,15 @@ function Workbench(){
             }
           });
           return data.sessions;
+        });
+        setActiveConv(prev=>{
+          const currentChannel=activeChannelIdRef.current;
+          if(prev){
+            const fresh=data.sessions.find(s=>s.id===prev.id);
+            return fresh?{...prev,...fresh}:prev;
+          }
+          const first=data.sessions.find(s=>s.channel_id===currentChannel&&s.status!=='closed')||data.sessions.find(s=>s.channel_id===currentChannel);
+          return first||null;
         });
       }
     }catch(e){console.error('fetchSessions:',e);}
