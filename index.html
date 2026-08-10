@@ -297,19 +297,20 @@ function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,quic
 }
 
 /* ─── RightPanel (~330px) ─── */
+function isPrivateImageUrl(u){return /open\.feishu\.cn\/open-apis\/drive\/v1\/medias\//.test(String(u||''));}
 function parseImages(p){
   if(!p)return [];
   try{
     const raw=p.image_urls||p.images||'';
     if(!raw)return [];
-    if(Array.isArray(raw))return raw.filter(u=>u&&u.startsWith('http'));
+    if(Array.isArray(raw))return raw.filter(u=>u&&u.startsWith('http')&&!isPrivateImageUrl(u));
     if(typeof raw==='string'){
       const t=raw.trim();
       if(t.startsWith('[')){
         const arr=JSON.parse(t);
-        return (Array.isArray(arr)?arr:[]).filter(u=>u&&u.startsWith('http'));
+        return (Array.isArray(arr)?arr:[]).filter(u=>u&&u.startsWith('http')&&!isPrivateImageUrl(u));
       }
-      return t.startsWith('http')?[t]:[];
+      return t.startsWith('http')&&!isPrivateImageUrl(t)?[t]:[];
     }
   }catch(e){}
   return [];
@@ -776,7 +777,7 @@ function SettingsModal({onClose}){
                 ['货号: '+(p.product_code||'-'),'价格: ¥'+(p.price||'?'),'材质: '+(p.material||'-'),'分类: '+(p.category||'-')].join(' | ')
               ),
               p.selling_summary&&React.createElement('pre',{className:'text-xs mt-2 whitespace-pre-wrap',style:{color:'#888',maxHeight:'120px',overflow:'auto'}},p.selling_summary),
-              p.image_urls&&React.createElement('img',{src:(Array.isArray(p.image_urls)?p.image_urls[0]:(()=>{try{return JSON.parse(p.image_urls)[0]}catch(e){return p.image_urls}})())||'',style:{width:'60px',height:'60px',objectFit:'cover',borderRadius:'6px',marginTop:'6px'}}),
+              (()=>{const img=parseImages(p)[0];return img&&React.createElement('img',{src:img,style:{width:'60px',height:'60px',objectFit:'cover',borderRadius:'6px',marginTop:'6px'}})})(),
               p.jump_url&&React.createElement('button',{onClick:()=>window.open(p.jump_url,'_blank'),className:'mt-2 px-3 py-1.5 rounded-lg text-sm font-medium border',style:{borderColor:'#e5e5e5',color:'#666'}},'打开商品')
             ))
           ):
