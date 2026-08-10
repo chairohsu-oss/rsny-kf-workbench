@@ -41,6 +41,7 @@ const CHANNELS=[
   {id:'wxmini',name:'RSNY官方精品店',platform:'小程序',icon:'mini',status:'online'},
   {id:'wxshop',name:'RSNY新品推荐官',platform:'微信小店',icon:'shop',status:'online'},
   {id:'official',name:'RSNY公众号',platform:'公众号',icon:'mp',status:'pending'},
+  {id:'crmeb',name:'RSNY商城',platform:'H5商城',icon:'shop',status:'online'},
 ];
 
 /* ─── SVG Icons ─── */
@@ -203,7 +204,7 @@ function ChatArea({activeConv,messages,onSend,onTakeover,onHandback,onClose,quic
     )
   );
 
-  const channelLabel=activeConv.channel_id?.includes('wxshop')?'微信小店':activeConv.channel_id?.includes('wxmini')?'小程序':activeConv.channel_id?.includes('official')?'公众号':activeConv.channel_id||'未知';
+  const channelLabel=activeConv.channel_id?.includes('wxshop')?'微信小店':activeConv.channel_id?.includes('wxmini')?'小程序':activeConv.channel_id?.includes('crmeb')?'H5商城':activeConv.channel_id?.includes('official')?'公众号':activeConv.channel_id||'未知';
 
   return React.createElement('div',{className:'flex-1 flex flex-col',style:{background:'#fff'}},
     /* Header */
@@ -524,6 +525,8 @@ function SettingsModal({onClose}){
   const[newFactContent,setNewFactContent]=useState('');
   const[newQRTitle,setNewQRTitle]=useState('');const[newQRContent,setNewQRContent]=useState('');
   const[msg,setMsg]=useState('');
+  const[pq,setPq]=useState('');const[pr,setPr]=useState([]);const[ps,setPs]=useState(false);
+  const searchP=async(q)=>{if(!q.trim()){setPr([]);return;}setPs(true);try{const r=await api('/products/search?q='+encodeURIComponent(q));setPr(Array.isArray(r)?r:(r.products||[]));}catch(e){setPr([]);}setPs(false);};
 
   useEffect(()=>{
     fetch(SETTINGS_API,{headers:{'x-admin-key':AUTH}}).then(r=>r.json()).then(d=>{
@@ -627,8 +630,8 @@ function SettingsModal({onClose}){
 
   if(!settings)return React.createElement('div',{className:'fixed inset-0 bg-black/40 flex items-center justify-center z-50'},React.createElement('div',{className:'bg-white rounded-2xl p-8'},React.createElement('p',null,'加载中...')));
 
-  const tabs=['ai','greeting','logistics','prompts','channels','facts','quick'];
-  const tabNames={ai:'AI模型',greeting:'默认开场白',logistics:'物流配置',prompts:'通用提示词',channels:'渠道提示词',facts:'品牌知识',quick:'快捷回复'};
+  const tabs=['ai','greeting','logistics','prompts','channels','facts','quick','products'];
+  const tabNames={ai:'AI模型',greeting:'默认开场白',logistics:'物流配置',prompts:'通用提示词',channels:'渠道提示词',facts:'品牌知识',quick:'快捷回复',products:'商品知识库'};
 
   return React.createElement('div',{className:'fixed inset-0 bg-black/40 flex items-center justify-center z-50',onClick:e=>{if(e.target===e.currentTarget)onClose();}},
     React.createElement('div',{className:'bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden',style:{width:'min(1100px,92vw)',height:'min(820px,88vh)'}},
@@ -757,6 +760,27 @@ function SettingsModal({onClose}){
             ),
             React.createElement('button',{onClick:()=>delQR(qr.id),className:'ml-3 text-red-400 hover:text-red-600 text-lg leading-none'},'×')
           ))
+        ),
+        tab==='products'&&React.createElement('div',{className:'space-y-4'},
+          React.createElement('h3',{className:'font-semibold text-base mb-3'},'商品知识库'),
+          React.createElement('p',{className:'text-sm',style:{color:'#8e8ea0'}},'搜索商品名称、货号或链接，快速定位并查看商品完整信息。'),
+          React.createElement('div',{className:'flex gap-2'},
+            React.createElement('input',{value:pq,onChange:e=>setPq(e.target.value),onKeyDown:e=>e.key==='Enter'&&searchP(pq),placeholder:'搜索商品名称/货号...',className:'flex-1 px-3 py-2 border rounded-lg text-base focus:outline-none',style:{borderColor:'#e5e5e5'}}),
+            React.createElement('button',{onClick:()=>searchP(pq),className:'px-3 py-2 text-white rounded-lg text-sm font-medium',style:{background:'#666'}},'搜索')
+          ),
+          ps?React.createElement('p',{className:'text-sm py-2',style:{color:'#8e8ea0'}},'搜索中...'):
+          pr.length>0?React.createElement('div',{className:'space-y-3'},
+            pr.map((p,i)=>React.createElement('div',{key:i,className:'p-3 border rounded-lg',style:{borderColor:'#e5e5e5'}},
+              React.createElement('div',{className:'font-medium'},(p.product_code||'')+' '+(p.name||'')),
+              React.createElement('div',{className:'text-sm mt-1',style:{color:'#666'}},
+                ['货号: '+(p.product_code||'-'),'价格: ¥'+(p.price||'?'),'材质: '+(p.material||'-'),'分类: '+(p.category||'-')].join(' | ')
+              ),
+              p.selling_summary&&React.createElement('pre',{className:'text-xs mt-2 whitespace-pre-wrap',style:{color:'#888',maxHeight:'120px',overflow:'auto'}},p.selling_summary),
+              p.image_urls&&React.createElement('img',{src:(Array.isArray(p.image_urls)?p.image_urls[0]:(()=>{try{return JSON.parse(p.image_urls)[0]}catch(e){return p.image_urls}})())||'',style:{width:'60px',height:'60px',objectFit:'cover',borderRadius:'6px',marginTop:'6px'}}),
+              p.jump_url&&React.createElement('button',{onClick:()=>window.open(p.jump_url,'_blank'),className:'mt-2 px-3 py-1.5 rounded-lg text-sm font-medium border',style:{borderColor:'#e5e5e5',color:'#666'}},'打开商品')
+            ))
+          ):
+          pq?React.createElement('p',{className:'text-sm py-2',style:{color:'#8e8ea0'}},'未找到商品'):React.createElement('p',{className:'text-sm py-2',style:{color:'#8e8ea0'}},'输入关键词开始搜索')
         )
       )
     )
