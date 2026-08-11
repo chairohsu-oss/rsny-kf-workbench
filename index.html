@@ -796,7 +796,7 @@ function Workbench(){
   const[quickReplies,setQuickReplies]=useState([]);
   const[unreadCounts,setUnreadCounts]=useState({});
   const[readBaselines,setReadBaselines]=useState({});
-  const[activeChannelId,setActiveChannelId]=useState('wxmini');
+  const[activeChannelId,setActiveChannelId]=useState('crmeb_h5'); // RSNY 2026-08-11: 默认商城渠道
   const[loading,setLoading]=useState(true);
   const[showSettings,setShowSettings]=useState(false);
   const activeChannelIdRef=useRef(activeChannelId);
@@ -825,8 +825,19 @@ function Workbench(){
             const fresh=data.sessions.find(s=>s.id===prev.id);
             return fresh?{...prev,...fresh}:prev;
           }
-          const first=data.sessions.find(s=>s.channel_id===currentChannel&&s.status!=='closed')||data.sessions.find(s=>s.channel_id===currentChannel);
-          return first||null;
+          // 当前渠道优先：未关闭会话 > 任意会话
+          let first=data.sessions.find(s=>s.channel_id===currentChannel&&s.status!=='closed')||data.sessions.find(s=>s.channel_id===currentChannel);
+          if(first) return first;
+          // RSNY 2026-08-11: 当前渠道没有会话时，跨渠道自动选中最新未读/最新会话，并切换渠道
+          const active=data.sessions.filter(s=>s.status!=='closed'&&s.unread_count>0)
+            .sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at))[0];
+          const anyOpen=data.sessions.filter(s=>s.status!=='closed')
+            .sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at))[0];
+          const fallback=active||anyOpen||data.sessions[0]||null;
+          if(fallback&&fallback.channel_id!==currentChannel){
+            setTimeout(()=>setActiveChannelId(fallback.channel_id),0);
+          }
+          return fallback;
         });
       }
     }catch(e){console.error('fetchSessions:',e);}
@@ -926,6 +937,9 @@ function Workbench(){
     setUnreadCounts(prev=>{const n={...prev};delete n[conv.id];return n;});
     setReadBaselines(prev=>({...prev,[conv.id]:conv.unread_count||0}));
     setActiveConv(conv);
+    // RSNY 2026-08-11: 主动拉取消息，避免点同一会话不刷新
+    fetchMessages(conv.id);
+    api('/sessions/'+conv.id+'/read',{method:'POST'}).catch(e=>console.warn('mark read failed',e));
   };
 
   return React.createElement('div',{className:'h-screen flex'},
